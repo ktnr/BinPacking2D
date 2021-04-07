@@ -200,9 +200,10 @@ class BinPackingMip:
     def __init__(self, enable2D = True):
         self.Model = gp.Model("BinPacking")
 
-        self.Model.Params.OutputFlag = 0
+        self.Model.Params.OutputFlag = 1
         self.Model.Params.lazyConstraints = 1
         self.Model.Params.MIPFocus = 3
+        self.Model.Params.TimeLimit = 600
 
         self.Items = []
         self.Bins = []
@@ -252,7 +253,7 @@ class BinPackingMip:
         lowerBoundBinArea = math.ceil(float(totalArea) / float(self.Bins[0].Dx * self.Bins[0].Dy)) # homogeneous bins!
 
         lb1D = lowerBoundBinArea
-        if not self.Enable2D:
+        if self.Enable2D:
             binPacking1D = BinPackingMip(False)
 
             binPacking1D.AddItems(w, h)
@@ -268,7 +269,7 @@ class BinPackingMip:
 
         lowerBoundBin = max(lowerBoundBinArea, lb1D)
 
-        for b in range(lowerBoundBinArea):
+        for b in range(lowerBoundBin):
             self.BinVariables[b].LB = 1.0
 
     def CreateConstraints(self):
@@ -404,6 +405,8 @@ class BinPackingMip:
 
             if b >= int(ub):
                 self.BinVariables[b].UB = 0.0
+                for i, item in enumerate(self.Items):
+                    self.ItemVariables[b][i].UB = 0.0
 
             for i, item in enumerate(self.Items):
                 self.ItemVariables[b][i].Start = 0.0
@@ -427,6 +430,9 @@ class BinPackingMip:
 
         if self.Enable2D:
             self.Model.optimize(BinPackingCallback.callback)
+        else:
+            self.Model.optimize()
+
         #self.Model.printAttr('x')
 
         #self.Model.write('BPP.lp')
@@ -452,6 +458,8 @@ class BinPackingBranchAndCutSolver:
     def __init__(self):
         self.BinPacking = BinPackingMip()
 
+        self.RemovedItems = []
+
         self.IsOptimal = False
         self.LB = -1
         self.UB = -1
@@ -459,6 +467,9 @@ class BinPackingBranchAndCutSolver:
         self.CutCount = -1
 
     def RetrieveSolutionStatistics(self):
+        if self.IsOptimal:
+            return 
+
         model = self.BinPacking.Model
 
         self.IsOptimal = 1 if model.Status == GRB.OPTIMAL else 0
@@ -468,11 +479,41 @@ class BinPackingBranchAndCutSolver:
 
     def DetermineStartSolution(self, h, w, H, W, m):
         solverCP = BinPackingSolverCP()
-        solverCP.BinPackingErwin(h, w, H, W, m, 10, False)
+        rectangles = solverCP.BinPackingErwin(h, w, H, W, m, 10, False)
+
+        if solverCP.LB == solverCP.UB:
+            return True, solverCP.LB, rectangles
 
         self.BinPacking.SetStartSolution(solverCP.ItemBinAssignments, solverCP.LB, solverCP.UB)
 
-    def Run(self, h, w, H, W, m):        
+        return False, solverCP.LB, rectangles
+
+    def Preprocess(self, h, w, H, W, m):
+        filteredItemIndices = []
+        for i in range(len(h)):
+            dy = h[i]
+            dx = w[i]
+
+            if dy == H and dx == W:
+                self.RemovedItems.append(Item(dx, dy))
+                continue
+
+            filteredItemIndices.append(i)
+
+        newH = []
+        newW = []
+        for i in filteredItemIndices:
+            newH.append(h[i])
+            newW.append(w[i])
+
+        self.BinPacking.Model.ObjCon = len(self.RemovedItems)
+
+        return newH, newW, len(filteredItemIndices)
+
+
+    def Run(self, h, w, H, W, m):   
+        h, w, m = self.Preprocess(h, w, H, W, m)
+
         self.BinPacking.AddItems(w, h)
         self.BinPacking.AddBins([W] * m, [H] * m)
 
@@ -481,7 +522,15 @@ class BinPackingBranchAndCutSolver:
         
         #self.BinPacking.Model.write('BPP.lp')
 
-        self.DetermineStartSolution(h, w, H, W, m)
+        isOptimalCP, lbCP, rectangles = self.DetermineStartSolution(h, w, H, W, m)
+
+        if isOptimalCP:
+            self.IsOptimal = 1
+            self.LB = lbCP + len(self.RemovedItems)
+            self.UB = lbCP + len(self.RemovedItems)
+            self.Runtime = -1
+
+            return rectangles
 
         rectangles = self.BinPacking.Solve()
 
@@ -493,7 +542,7 @@ class BinPackingBranchAndCutSolver:
 def main():
     #h, w, H, W, m = ReadExampleData()
     solutions = {}
-    for instance in range(10, 11):
+    for instance in range(50, 51):
         h, w, H, W, m = ReadBenchmarkData(instance)
         
         solver = BinPackingBranchAndCutSolver()
@@ -508,9 +557,10 @@ def main():
         PlotSolution(upperBoundMIP * W, H, rectangles)
 
         if isOptimalMIP:
-            print(f'Instance {instance} optimal solution: {int(bestBoundMIP)}')
+            print(f'Instance {instance} optimal solution: {int(bestBoundMIP)} (#items = {len(h)})')
         else:
-            raise ValueError(f'Instance {instance}: No optimal solution found, [lb, ub] = [{bestBoundMIP}, {upperBoundMIP}]')
+            #raise ValueError(f'Instance {instance}: No optimal solution found, [lb, ub] = [{bestBoundMIP}, {upperBoundMIP}]')
+            print(f'Instance {instance}: No optimal solution found, [lb, ub] = [{bestBoundMIP}, {upperBoundMIP}] (#items = {len(h)})')
     
         solutions[instance] = {'LB': bestBoundMIP, 'UB': upperBoundMIP}
 
