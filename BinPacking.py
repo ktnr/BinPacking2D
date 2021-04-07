@@ -19,6 +19,13 @@ class Item:
         self.Dx = dx
         self.Dy = dy
         self.Weight = dx * dy
+        
+    def __eq__(self, other):
+        return self.Dx == other.Dx and self.Dy == other.Dy
+
+    def __lt__(self, other):
+        return ((self.Weight, self.Dx) < (other.Weight, other.Dx))
+        
 
 class Bin:
     def __init__(self, dx, dy):
@@ -200,10 +207,10 @@ class BinPackingMip:
     def __init__(self, enable2D = True):
         self.Model = gp.Model("BinPacking")
 
-        self.Model.Params.OutputFlag = 1
+        self.Model.Params.OutputFlag = 0
         self.Model.Params.lazyConstraints = 1
         self.Model.Params.MIPFocus = 3
-        self.Model.Params.TimeLimit = 600
+        self.Model.Params.TimeLimit = 60
 
         self.Items = []
         self.Bins = []
@@ -215,13 +222,8 @@ class BinPackingMip:
 
         self.Enable2D = enable2D
 
-    def AddItems(self, itemDxArray, itemDyArray):
-        for i in range(len(itemDxArray)):
-            dx = itemDxArray[i]
-            dy = itemDyArray[i]
-
-            item = Item(dx, dy)
-            self.Items.append(item)
+    def AddItems(self, items):
+        self.Items = items
 
     def AddBins(self, binDxArray, binDyArray):
         for i in range(len(binDxArray)):
@@ -256,7 +258,7 @@ class BinPackingMip:
         if self.Enable2D:
             binPacking1D = BinPackingMip(False)
 
-            binPacking1D.AddItems(w, h)
+            binPacking1D.AddItems(list(self.Items))
             binPacking1D.AddBins([self.Bins[0].Dx] * len(self.Bins), [self.Bins[0].Dy] * len(self.Bins))
 
             binPacking1D.CreateVariables()
@@ -424,7 +426,46 @@ class BinPackingMip:
         for b, assigment in enumerate(sortedAssigments):
             for i in assigment:
                 self.ItemVariables[b][i].Start = 1.0
-                
+
+    def FixIncompatibleItems(self, incompatibleItems):
+        numberOfItems = len(self.Items)
+
+        # This is a similar logic as in section 6.2 in Cote, Haouari, Iori (2019). 
+        self.ItemVariables[0][0].LB = 1.0
+
+        for i in range(1, numberOfItems):
+            itemI = self.Items[i]
+
+            isIncompatible = True
+            for j in range(0, i):
+                if frozenset((i, j)) not in incompatibleItems:
+                    isIncompatible = False
+                    return i
+            
+            if isIncompatible:
+                for b, bin in enumerate(self.Bins):
+                    if b == i:
+                        self.ItemVariables[b][i].LB = 1.0
+                    else:
+                        self.ItemVariables[b][i].UB = 0.0
+
+        return numberOfItems - 1
+
+    def AddIncompatibilityCuts(self, incompatibleItems, lastFixedItemIndex):
+        for i, j in incompatibleItems:
+            if i < lastFixedItemIndex and j < lastFixedItemIndex:
+                continue
+
+            for b, bin in enumerate(self.Bins):
+                # are the same cuts added multiple times if contained multiple times in incompatibleItems?
+                # TODO.Logic: lifting 
+                self.Model.addConstr(self.ItemVariables[b][i] + self.ItemVariables[b][j] <= 1)
+
+    def ApplyPreprocessChanges(self, incompatibleItems):
+        lastFixedItemIndex = self.FixIncompatibleItems(incompatibleItems)
+        self.AddIncompatibilityCuts(incompatibleItems, lastFixedItemIndex)
+        
+
     def Solve(self):
         self.SetCallbackData()
 
@@ -459,6 +500,7 @@ class BinPackingBranchAndCutSolver:
         self.BinPacking = BinPackingMip()
 
         self.RemovedItems = []
+        self.IncompatibleItems = set()
 
         self.IsOptimal = False
         self.LB = -1
@@ -477,8 +519,15 @@ class BinPackingBranchAndCutSolver:
         self.UB = model.objVal
         self.Runtime = model.Runtime
 
-    def DetermineStartSolution(self, h, w, H, W, m):
+    def DetermineStartSolution(self, items, H, W, m):
         solverCP = BinPackingSolverCP()
+        
+        h = []
+        w = []
+        for i, item in enumerate(items):
+            h.append(item.Dy)
+            w.append(item.Dx)
+
         rectangles = solverCP.BinPackingErwin(h, w, H, W, m, 10, False)
 
         if solverCP.LB == solverCP.UB:
@@ -488,41 +537,79 @@ class BinPackingBranchAndCutSolver:
 
         return False, solverCP.LB, rectangles
 
-    def Preprocess(self, h, w, H, W, m):
+    def RemoveLargeItems(self, items, H, W, m):
         filteredItemIndices = []
-        for i in range(len(h)):
-            dy = h[i]
-            dx = w[i]
+        for i, item in enumerate(items):
+            dy = item.Dy
+            dx = item.Dx
 
             if dy == H and dx == W:
+                print(f'Item {i} has the same dimensions as the bin and will be removed.')
+                self.RemovedItems.append(Item(dx, dy))
+                continue
+            
+            isFullyIncompatible = True
+            for j, itemJ in enumerate(items):
+                if i == j:
+                    continue
+
+                if item.Dx + itemJ.Dx > W and item.Dy + itemJ.Dy > H:
+                    continue
+
+                isFullyIncompatible = False
+                break
+
+            if isFullyIncompatible:
+                print(f'Item {i} is fully incompatible and will be removed.')
                 self.RemovedItems.append(Item(dx, dy))
                 continue
 
             filteredItemIndices.append(i)
 
-        newH = []
-        newW = []
-        for i in filteredItemIndices:
-            newH.append(h[i])
-            newW.append(w[i])
-
         self.BinPacking.Model.ObjCon = len(self.RemovedItems)
 
-        return newH, newW, len(filteredItemIndices)
+        newItems = []
+        for i in filteredItemIndices:
+            newItems.append(Item(items[i].Dx, items[i].Dy))
 
+        return newItems, len(filteredItemIndices)
+
+    def DetermineConflicts(self, items, H, W):
+        for i, itemI in enumerate(items):
+            for j in range(i + 1, len(items)):
+                itemJ = items[j]
+
+                if itemI.Dx + itemJ.Dx > W and itemI.Dy + itemJ.Dy > H:
+                    self.IncompatibleItems.add(frozenset((i, j)))
+                    self.IncompatibleItems.add(frozenset((j, i)))
+                    continue
+
+    def Preprocess(self, items, H, W, m):
+        items = sorted(items, reverse=True)
+        items, m = self.RemoveLargeItems(items, H, W, m)
+
+        self.DetermineConflicts(items, H, W)
+
+        return items, m
 
     def Run(self, h, w, H, W, m):   
-        h, w, m = self.Preprocess(h, w, H, W, m)
+        items = []
+        for i in range(len(h)):
+            items.append(Item(w[i], h[i]))
 
-        self.BinPacking.AddItems(w, h)
+        items, m = self.Preprocess(items, H, W, m)
+
+        self.BinPacking.AddItems(items)
         self.BinPacking.AddBins([W] * m, [H] * m)
 
         self.BinPacking.CreateVariables()
         self.BinPacking.CreateConstraints()
+
+        self.BinPacking.ApplyPreprocessChanges(self.IncompatibleItems)
         
         #self.BinPacking.Model.write('BPP.lp')
 
-        isOptimalCP, lbCP, rectangles = self.DetermineStartSolution(h, w, H, W, m)
+        isOptimalCP, lbCP, rectangles = self.DetermineStartSolution(items, H, W, m)
 
         if isOptimalCP:
             self.IsOptimal = 1
@@ -542,7 +629,7 @@ class BinPackingBranchAndCutSolver:
 def main():
     #h, w, H, W, m = ReadExampleData()
     solutions = {}
-    for instance in range(50, 51):
+    for instance in range(223, 250):
         h, w, H, W, m = ReadBenchmarkData(instance)
         
         solver = BinPackingBranchAndCutSolver()
@@ -554,7 +641,7 @@ def main():
         upperBoundMIP = solver.UB
         isOptimalMIP = solver.IsOptimal
         
-        PlotSolution(upperBoundMIP * W, H, rectangles)
+        #PlotSolution(upperBoundMIP * W, H, rectangles)
 
         if isOptimalMIP:
             print(f'Instance {instance} optimal solution: {int(bestBoundMIP)} (#items = {len(h)})')
