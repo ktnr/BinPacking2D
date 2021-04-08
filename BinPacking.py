@@ -209,8 +209,8 @@ class BinPackingMip:
 
         self.Model.Params.OutputFlag = 0
         self.Model.Params.lazyConstraints = 1
-        self.Model.Params.MIPFocus = 3
-        self.Model.Params.TimeLimit = 60
+        self.Model.Params.MIPFocus = 2
+        self.Model.Params.TimeLimit = 300
 
         self.Items = []
         self.Bins = []
@@ -267,7 +267,8 @@ class BinPackingMip:
             binPacking1D.Solve()
 
             model1D = binPacking1D.Model  
-            lb1D = model1D.objBound
+            lb1D = math.ceil(model1D.objBound)
+            # TODO add bound lifted indicator to solution statistic
 
         lowerBoundBin = max(lowerBoundBinArea, lb1D)
 
@@ -506,6 +507,7 @@ class BinPackingBranchAndCutSolver:
         self.LB = -1
         self.UB = -1
         self.Runtime = -1
+        self.SolverType = ""
         self.CutCount = -1
 
     def RetrieveSolutionStatistics(self):
@@ -518,6 +520,7 @@ class BinPackingBranchAndCutSolver:
         self.LB = model.objBound
         self.UB = model.objVal
         self.Runtime = model.Runtime
+        self.SolverType = "B&C"
 
     def DetermineStartSolution(self, items, H, W, m):
         solverCP = BinPackingSolverCP()
@@ -531,11 +534,11 @@ class BinPackingBranchAndCutSolver:
         rectangles = solverCP.BinPackingErwin(h, w, H, W, m, 10, False)
 
         if solverCP.LB == solverCP.UB:
-            return True, solverCP.LB, rectangles
+            return True, solverCP.LB, "CP", rectangles
 
         self.BinPacking.SetStartSolution(solverCP.ItemBinAssignments, solverCP.LB, solverCP.UB)
 
-        return False, solverCP.LB, rectangles
+        return False, solverCP.LB, "B&C", rectangles
 
     def RemoveLargeItems(self, items, H, W, m):
         filteredItemIndices = []
@@ -609,12 +612,13 @@ class BinPackingBranchAndCutSolver:
         
         #self.BinPacking.Model.write('BPP.lp')
 
-        isOptimalCP, lbCP, rectangles = self.DetermineStartSolution(items, H, W, m)
+        isOptimalCP, lbCP, solverType, rectangles = self.DetermineStartSolution(items, H, W, m)
 
         if isOptimalCP:
             self.IsOptimal = 1
             self.LB = lbCP + len(self.RemovedItems)
             self.UB = lbCP + len(self.RemovedItems)
+            self.SolverType = solverType
             self.Runtime = -1
 
             return rectangles
@@ -629,7 +633,7 @@ class BinPackingBranchAndCutSolver:
 def main():
     #h, w, H, W, m = ReadExampleData()
     solutions = {}
-    for instance in range(223, 250):
+    for instance in range(450, 500):
         h, w, H, W, m = ReadBenchmarkData(instance)
         
         solver = BinPackingBranchAndCutSolver()
@@ -637,19 +641,21 @@ def main():
 
         solver.RetrieveSolutionStatistics()
 
+        # TODO: introduce solution statistics strct
         bestBoundMIP = solver.LB
         upperBoundMIP = solver.UB
+        solverType = solver.SolverType
         isOptimalMIP = solver.IsOptimal
         
         #PlotSolution(upperBoundMIP * W, H, rectangles)
 
         if isOptimalMIP:
-            print(f'Instance {instance} optimal solution: {int(bestBoundMIP)} (#items = {len(h)})')
+            print(f'Instance {instance}: Optimal solution = {int(bestBoundMIP)} found by {solverType} (#items = {len(h)})')
         else:
             #raise ValueError(f'Instance {instance}: No optimal solution found, [lb, ub] = [{bestBoundMIP}, {upperBoundMIP}]')
             print(f'Instance {instance}: No optimal solution found, [lb, ub] = [{bestBoundMIP}, {upperBoundMIP}] (#items = {len(h)})')
     
-        solutions[instance] = {'LB': bestBoundMIP, 'UB': upperBoundMIP}
+        solutions[instance] = {'LB': bestBoundMIP, 'UB': upperBoundMIP, 'Solver': solverType}
 
     solutionsJson = json.dumps(solutions, indent = 4)
     
