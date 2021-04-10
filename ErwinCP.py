@@ -1,4 +1,5 @@
 from ortools.sat.python import cp_model
+from ortools.sat.python.cp_model import Domain
 
 import math
 import pandas
@@ -16,9 +17,73 @@ class BinPackingSolverCP():
 
         self.ItemBinAssignments = []
     
+    def FixIncompatibleItems(self, incompatibleItems, numberOfItems):
+        # This is a similar logic as in section 6.2 in Cote, Haouari, Iori (2019). 
+        fixItemToBin = [False] * numberOfItems
+        fixItemToBin[0] = True
+
+        if incompatibleItems == None or len(incompatibleItems) == 0:
+            return 1, fixItemToBin
+
+        for i in range(1, numberOfItems):
+            isIncompatible = True
+            for j in range(0, i):
+                if frozenset((i, j)) not in incompatibleItems:
+                    isIncompatible = False
+                    return i, fixItemToBin
+            
+            if isIncompatible:
+                fixItemToBin[i] = True
+
+        return numberOfItems - 1, fixItemToBin
+
+    """ For reference, see section 6.1 from Cote, Iori (2018). """
+    def CreateReducedBinDomains(self, incompatibleItems, numberOfItems, numberOfBins, fixItemToBin, lastFixedItemIndex):
+        fullDomains = []
+        fullDomains.append([0])
+        if incompatibleItems == None or len(incompatibleItems) == 0:
+            for i in range(1, numberOfItems):
+                boundedNumberOfBins = i if i < numberOfBins else numberOfBins - 1
+                fullDomains.append([j for j in range(boundedNumberOfBins + 1)])
+
+            return fullDomains
+
+        
+        for i in range(1, numberOfItems):
+            boundedNumberOfBins = i if i < numberOfBins else numberOfBins - 1
+            fullDomains.append([boundedNumberOfBins])
+
+            if fixItemToBin[i]:
+                continue
+
+            for j in range(0, numberOfItems):
+                if j >= boundedNumberOfBins:
+                    break
+
+                if fixItemToBin[j] and frozenset((i, j)) in incompatibleItems:
+                    continue
+                else:
+                    fullDomains[i].append(j)
+
+        return fullDomains
+
+    def AddIncompatibilityCuts(self, incompatibleItems, lastFixedItemIndex, model, binVariables):
+        if incompatibleItems == None:
+            return
+
+        for i, j in incompatibleItems:
+            if i > lastFixedItemIndex and j < lastFixedItemIndex:
+                #binVariables[i].RemoveValue(j)
+                pass
+
+            if i < lastFixedItemIndex and j < lastFixedItemIndex:
+                continue
+            
+            model.Add(binVariables[i] != binVariables[j])
+
     """ from https://yetanothermathprogrammingconsultant.blogspot.com/2021/02/2d-bin-packing-with-google-or-tools-cp.html 
     https://yetanothermathprogrammingconsultant.blogspot.com/2021/02/2d-bin-packing.html """
-    def BinPackingErwin(self, h, w, H, W, m, timeLimit = 3600, enableLogging = True):
+    def BinPackingErwin(self, h, w, H, W, m, timeLimit = 3600, enableLogging = True, incompatibleItems = None):
 
         n = len(h)
 
@@ -28,11 +93,44 @@ class BinPackingSolverCP():
         # variables
         #
 
-        # x and y
-        x = [model.NewIntVar(0,W-w[i],f'x{i}') for i in range(n)]
+        lastFixedIndex, fixItemToBin = self.FixIncompatibleItems(incompatibleItems, n)
 
-        xb1 = [model.NewIntVar(0,m*W-w[i],f'xb1.{i}') for i in range(n)]
-        xb2 = [model.NewIntVar(w[i],m*W,f'xb2.{i}') for i in range(n)]
+        binDomains = self.CreateReducedBinDomains(incompatibleItems, n, m, fixItemToBin, lastFixedIndex)
+
+        # x and y
+        x = [model.NewIntVar(0, W-w[i],f'x{i}') for i in range(n)]
+
+        # TODO: fix item x ranges to particular bin as in MIP
+        b = [] # bin numbers
+        xb1 = []
+        xb2 = []
+        for i in range(n):
+            f = model.NewIntVarFromDomain(Domain.FromValues(binDomains[i]), f'b{i}')
+            b.append(f)
+
+            """
+            d = model.NewIntVar(f*W, (f + 1)*W-w[i], f'xb1.{i}')
+            e = model.NewIntVar(f*W + w[i], (f + 1)*W, f'xb2.{i}')
+
+            xb1.append(d)
+            xb2.append(e)
+            """
+
+            if fixItemToBin[i]:
+                d = model.NewIntVar(i*W, (i + 1)*W-w[i], f'xb1.{i}')
+                e = model.NewIntVar(i*W + w[i], (i + 1)*W, f'xb2.{i}')
+
+                xb1.append(d)
+                xb2.append(e)
+            else:
+                boundedM = i if i < m else m - 1
+
+                # TODO: apply bin domains to these variables
+                d = model.NewIntVar(0, boundedM*W-w[i], f'xb1.{i}')
+                e = model.NewIntVar(w[i], boundedM*W, f'xb2.{i}')
+                
+                xb1.append(d)
+                xb2.append(e)
 
         y1 = [model.NewIntVar(0,H-h[i],f'y1.{i}') for i in range(n)]
         y2 = [model.NewIntVar(h[i],H,f'y2.{i}') for i in range(n)]
@@ -41,8 +139,7 @@ class BinPackingSolverCP():
         xival = [model.NewIntervalVar(xb1[i],w[i],xb2[i],f'xival{i}') for i in range(n)]
         yival = [model.NewIntervalVar(y1[i],h[i],y2[i],f'yival{i}') for i in range(n)]
 
-        # bin numbers
-        b = [model.NewIntVar(0,m-1,f'b{i}') for i in range(n)]
+        self.AddIncompatibilityCuts(incompatibleItems, lastFixedIndex, model, b)
 
         totalArea = numpy.dot(w,h)
         lowerBoundBin = math.ceil(float(totalArea) / float(H * W))
