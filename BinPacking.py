@@ -8,6 +8,7 @@ import numpy
 import json
 
 from ortools.sat.python import cp_model
+from ortools.sat.python.cp_model import Domain
 
 from BinPackingData import *
 from ErwinCP import *
@@ -56,16 +57,65 @@ class BinPacking2D:
     def AddBin(self, bin):
         self.Bin = bin
 
+    @staticmethod
+    def DetermineNormalPatterns(items, bin):
+        X = [0] * bin.Dx
+        Y = [0] * bin.Dy
+        X[0] = 1
+        Y[0] = 1
+
+        minDx = bin.Dx
+        minDy = bin.Dy
+
+        for i, item in enumerate(items):
+            minDx = min(minDx, item.Dx)
+            minDy = min(minDy, item.Dy)
+            for p in range(bin.Dx - item.Dx, -1, -1):
+                if X[p] == 1:
+                    if p + item.Dx < bin.Dx:
+                        X[p + item.Dx] = 1
+
+            for p in range(bin.Dy - item.Dy, -1, -1):
+                if Y[p] == 1:
+                    if p + item.Dy < bin.Dy:
+                        Y[p + item.Dy] = 1
+
+        normalPatternsX = []
+        for p in range (bin.Dx - 1, -1, -1):
+            if X[p] == 1 and p <= bin.Dx - minDx:
+                normalPatternsX.append(p)
+
+        normalPatternsY = []
+        for p in range (bin.Dy - 1, -1, -1):
+            if Y[p] == 1 and p <= bin.Dy - minDy:
+                normalPatternsY.append(p)
+
+        return normalPatternsX, normalPatternsY
+
     def CreateVariables(self):
+        normalPatternsX, normalPatternsY = BinPacking2D.DetermineNormalPatterns(self.Items, self.Bin)
+
+        # Consider modifying domains according to Cote, Iori (2018): The meet-in-the-middle principle for cutting and packing problems.
         for i, item in enumerate(self.Items):
+
+            x1 = self.Model.NewIntVarFromDomain(Domain.FromValues(normalPatternsX), f'x1.{i}')
+            x2 = self.Model.NewIntVarFromDomain(Domain.FromValues([x + item.Dx for x in normalPatternsX]), f'x2.{i}')
+
+            """
             x1 = self.Model.NewIntVar(0, self.Bin.Dx - item.Dx, f'x1.{i}')
             x2 = self.Model.NewIntVar(item.Dx, self.Bin.Dx, f'x2.{i}')
+            """
 
             self.StartX.append(x1)
             self.EndX.append(x2)
 
+            y1 = self.Model.NewIntVarFromDomain(Domain.FromValues(normalPatternsY), f'y1.{i}')
+            y2 = self.Model.NewIntVarFromDomain(Domain.FromValues([y + item.Dy for y in normalPatternsY]), f'y2.{i}')
+
+            """
             y1 = self.Model.NewIntVar(0, self.Bin.Dy - item.Dy, f'y1.{i}')
             y2 = self.Model.NewIntVar(item.Dy, self.Bin.Dy, f'y2.{i}')
+            """
 
             self.StartY.append(y1)
             self.EndY.append(y2)
@@ -97,6 +147,7 @@ class BinPacking2D:
         self.Solver = cp_model.CpSolver()
         self.Solver.parameters.log_search_progress = False 
         self.Solver.parameters.num_search_workers = 1
+        #self.Solver.parameters.max_time_in_seconds = 10
         #solver.parameters.cp_model_presolve = False
 
         """
@@ -210,7 +261,7 @@ class BinPackingMip:
         self.Model.Params.OutputFlag = 0
         self.Model.Params.lazyConstraints = 1
         self.Model.Params.MIPFocus = 2
-        self.Model.Params.TimeLimit = 300
+        self.Model.Params.TimeLimit = 480
 
         self.Items = []
         self.Bins = []
@@ -531,7 +582,7 @@ class BinPackingBranchAndCutSolver:
             h.append(item.Dy)
             w.append(item.Dx)
 
-        rectangles = solverCP.BinPackingErwin(h, w, H, W, m, 10, False)
+        rectangles = solverCP.BinPackingErwin(h, w, H, W, m, 180, False, self.IncompatibleItems)
 
         if solverCP.LB == solverCP.UB:
             return True, solverCP.LB, "CP", rectangles
@@ -547,7 +598,7 @@ class BinPackingBranchAndCutSolver:
             dx = item.Dx
 
             if dy == H and dx == W:
-                print(f'Item {i} has the same dimensions as the bin and will be removed.')
+                #print(f'Item {i} has the same dimensions as the bin and will be removed.')
                 self.RemovedItems.append(Item(dx, dy))
                 continue
             
@@ -563,7 +614,7 @@ class BinPackingBranchAndCutSolver:
                 break
 
             if isFullyIncompatible:
-                print(f'Item {i} is fully incompatible and will be removed.')
+                #print(f'Item {i} is fully incompatible and will be removed.')
                 self.RemovedItems.append(Item(dx, dy))
                 continue
 
@@ -633,7 +684,9 @@ class BinPackingBranchAndCutSolver:
 def main():
     #h, w, H, W, m = ReadExampleData()
     solutions = {}
-    for instance in range(450, 500):
+    # Single bin 2D-BPP CP model cannot prove feasibility/infeasibility on instances:
+    # - 173 (strange behavior: initial num_bool: 1 even though there are no bools in the model)
+    for instance in range(332, 333):
         h, w, H, W, m = ReadBenchmarkData(instance)
         
         solver = BinPackingBranchAndCutSolver()
