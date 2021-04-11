@@ -6,6 +6,7 @@ import pandas
 import numpy
 
 from BinPackingData import *
+from BinPacking import BinPacking2D, Bin
 
 import matplotlib
 
@@ -15,6 +16,8 @@ class BinPackingSolverCP():
         self.LB = -1
         self.UB = -1
 
+        self.EnableNormalPatterns = False
+
         self.ItemBinAssignments = []
     
     def FixIncompatibleItems(self, incompatibleItems, numberOfItems):
@@ -23,22 +26,22 @@ class BinPackingSolverCP():
         fixItemToBin[0] = True
 
         if incompatibleItems == None or len(incompatibleItems) == 0:
-            return 1, fixItemToBin
+            return fixItemToBin
 
         for i in range(1, numberOfItems):
             isIncompatible = True
             for j in range(0, i):
                 if frozenset((i, j)) not in incompatibleItems:
                     isIncompatible = False
-                    return i, fixItemToBin
+                    return fixItemToBin
             
             if isIncompatible:
                 fixItemToBin[i] = True
 
-        return numberOfItems - 1, fixItemToBin
+        return fixItemToBin
 
     """ For reference, see section 6.1 from Cote, Iori (2018). """
-    def CreateReducedBinDomains(self, incompatibleItems, numberOfItems, numberOfBins, fixItemToBin, lastFixedItemIndex):
+    def CreateReducedBinDomains(self, incompatibleItems, numberOfItems, numberOfBins, fixItemToBin):
         fullDomains = []
         fullDomains.append([0])
         if incompatibleItems == None or len(incompatibleItems) == 0:
@@ -67,103 +70,174 @@ class BinPackingSolverCP():
 
         return fullDomains
 
-    def AddIncompatibilityCuts(self, incompatibleItems, lastFixedItemIndex, model, binVariables):
+    def CreateBinDependentNormalPatterns(self, incompatibleItems, fixItemToBin, items, numberOfBins, binDx, binDy):
+        bin = Bin(binDx, binDy)
+        numberOfItems = len(items)
+        
+        itemSpecificNormalPatternsX = []
+        itemSpecificNormalPatternsY = []
+
+        # Determine placement points for specific items depending on the combination with every other compatible item.
+        for i, itemI in enumerate(items):
+            itemSubset = [itemI]
+            for j, itemJ in enumerate(items):
+                if (fixItemToBin[i] and fixItemToBin[j]) or i == j or (i, j) in incompatibleItems:
+                    continue
+
+                itemSubset.append(itemJ)
+
+            normalPatternsX, normalPatternsY = BinPacking2D.DetermineNormalPatterns(itemSubset, bin)
+            itemSpecificNormalPatternsX.append(normalPatternsX)
+            itemSpecificNormalPatternsY.append(normalPatternsY)
+
+        # Determine placement points for items in specific bins and all other compatible items.
+        itemBinNormalPatternsX = []
+        for i, itemI in enumerate(items):
+            itemBinNormalPatternsX.append([])
+
+            if fixItemToBin[i]:
+                itemSubset = [itemI]
+                for j, itemJ in enumerate(items):
+                    if fixItemToBin[j] or j <= i or (i, j) in incompatibleItems:
+                        continue
+                    itemSubset.append(itemJ)
+
+                fixedBinNormalPatternsX, fixedBinNormalPatternsY = BinPacking2D.DetermineNormalPatterns(itemSubset, bin, i*bin.Dx)
+                itemBinNormalPatternsX[i].extend(fixedBinNormalPatternsX)
+
+                continue
+
+            for b in range(numberOfBins):
+                if b > i:
+                    break
+
+                itemSubset = [itemI]
+                for j, itemJ in enumerate(items):
+                    if i == j or b > j or (i, j) in incompatibleItems:
+                        continue
+                    
+                    itemSubset.append(itemJ)
+
+                binSpecificNormalPatternsX, binSpecificNormalPatternsY = BinPacking2D.DetermineNormalPatterns(itemSubset, bin, b*bin.Dx)
+                itemBinNormalPatternsX[i].extend(binSpecificNormalPatternsX)
+
+        return itemSpecificNormalPatternsX, itemSpecificNormalPatternsY, itemBinNormalPatternsX
+
+    def AddIncompatibilityCuts(self, incompatibleItems, fixItemToBin, model, binVariables):
         if incompatibleItems == None:
             return
 
         for i, j in incompatibleItems:
-            if i > lastFixedItemIndex and j < lastFixedItemIndex:
-                #binVariables[i].RemoveValue(j)
-                pass
-
-            if i < lastFixedItemIndex and j < lastFixedItemIndex:
+            if fixItemToBin[i] and fixItemToBin[j]:
                 continue
             
             model.Add(binVariables[i] != binVariables[j])
 
     """ from https://yetanothermathprogrammingconsultant.blogspot.com/2021/02/2d-bin-packing-with-google-or-tools-cp.html 
     https://yetanothermathprogrammingconsultant.blogspot.com/2021/02/2d-bin-packing.html """
-    def BinPackingErwin(self, h, w, H, W, m, timeLimit = 3600, enableLogging = True, incompatibleItems = None):
+    def BinPackingErwin(self, items, h, w, H, W, m, timeLimit = 3600, enableLogging = True, incompatibleItems = None):
 
-        n = len(h)
+        n = len(items)
 
         model = cp_model.CpModel()
 
-        #
+        #preprocessing
+        fixItemToBin = self.FixIncompatibleItems(incompatibleItems, n)
+
+        binDomains = self.CreateReducedBinDomains(incompatibleItems, n, m, fixItemToBin)
+
+        itemNormalPatternsX, itemNormalPatternsY, globalNormalPatternsX = [], [], []
+        if self.EnableNormalPatterns:
+            itemNormalPatternsX, itemNormalPatternsY, globalNormalPatternsX = self.CreateBinDependentNormalPatterns(incompatibleItems, fixItemToBin, items, m, W, H)
+
+
         # variables
-        #
 
-        lastFixedIndex, fixItemToBin = self.FixIncompatibleItems(incompatibleItems, n)
-
-        binDomains = self.CreateReducedBinDomains(incompatibleItems, n, m, fixItemToBin, lastFixedIndex)
-
-        # x and y
-        x = [model.NewIntVar(0, W-w[i],f'x{i}') for i in range(n)]
-
-        # TODO: fix item x ranges to particular bin as in MIP
+        x = [] 
         b = [] # bin numbers
         xb1 = []
         xb2 = []
-        for i in range(n):
+        y1 = []
+        y2 = []
+        totalArea = 0.0
+        for i, item in enumerate(items):
+
+            totalArea += item.Dx + item.Dy
+
             f = model.NewIntVarFromDomain(Domain.FromValues(binDomains[i]), f'b{i}')
             b.append(f)
 
-            """
-            d = model.NewIntVar(f*W, (f + 1)*W-w[i], f'xb1.{i}')
-            e = model.NewIntVar(f*W + w[i], (f + 1)*W, f'xb2.{i}')
+            if self.EnableNormalPatterns:
+                filteredStartLocalX = [p for p in itemNormalPatternsX[i] if (p % W) + item.Dx <= W]
+                xStart = model.NewIntVarFromDomain(Domain.FromValues(filteredStartLocalX),f'x{i}')
+                x.append(xStart)
 
-            xb1.append(d)
-            xb2.append(e)
-            """
-
-            if fixItemToBin[i]:
-                d = model.NewIntVar(i*W, (i + 1)*W-w[i], f'xb1.{i}')
-                e = model.NewIntVar(i*W + w[i], (i + 1)*W, f'xb2.{i}')
+                filteredStartX = [p for p in globalNormalPatternsX[i] if (p % W) + item.Dx <= W]
+                filteredEndX = [p + item.Dx for p in filteredStartX]
+                d = model.NewIntVarFromDomain(Domain.FromValues(filteredStartX), f'xb1.{i}')
+                e = model.NewIntVarFromDomain(Domain.FromValues(filteredEndX), f'xb2.{i}')
 
                 xb1.append(d)
                 xb2.append(e)
+
+                filteredStartY = [p for p in itemNormalPatternsY[i] if p + item.Dy <= H]
+                filteredEndY = [p + item.Dy for p in filteredStartY]
+                yStart = model.NewIntVarFromDomain(Domain.FromValues(filteredStartY),f'y1.{i}')
+                yEnd = model.NewIntVarFromDomain(Domain.FromValues(filteredEndY),f'y2.{i}')
+
+                y1.append(yStart)
+                y2.append(yEnd)
             else:
-                boundedM = i if i < m else m - 1
+                xStart = model.NewIntVar(0, W - item.Dx, f'x{i}')
+                x.append(xStart)
 
-                # TODO: apply bin domains to these variables
-                d = model.NewIntVar(0, boundedM*W-w[i], f'xb1.{i}')
-                e = model.NewIntVar(w[i], boundedM*W, f'xb2.{i}')
-                
-                xb1.append(d)
-                xb2.append(e)
+                yStart = model.NewIntVar(0, H - item.Dy,f'y1.{i}')
+                yEnd = model.NewIntVar(item.Dy, H,f'y2.{i}')
 
-        y1 = [model.NewIntVar(0,H-h[i],f'y1.{i}') for i in range(n)]
-        y2 = [model.NewIntVar(h[i],H,f'y2.{i}') for i in range(n)]
+                y1.append(yStart)
+                y2.append(yEnd)
+
+                if fixItemToBin[i]:
+                    d = model.NewIntVar(i*W, (i + 1)*W - item.Dx, f'xb1.{i}')
+                    e = model.NewIntVar(i*W + item.Dx, (i + 1)*W, f'xb2.{i}')
+
+                    xb1.append(d)
+                    xb2.append(e)
+                else:
+                    boundedM = i if i < m else m - 1
+
+                    # TODO: apply bin domains to these variables
+                    d = model.NewIntVar(0, boundedM*W - item.Dx, f'xb1.{i}')
+                    e = model.NewIntVar(item.Dx, boundedM*W, f'xb2.{i}')
+                    
+                    xb1.append(d)
+                    xb2.append(e)
+
 
         # interval variables
-        xival = [model.NewIntervalVar(xb1[i],w[i],xb2[i],f'xival{i}') for i in range(n)]
-        yival = [model.NewIntervalVar(y1[i],h[i],y2[i],f'yival{i}') for i in range(n)]
+        xival = [model.NewIntervalVar(xb1[i], items[i].Dx, xb2[i],f'xival{i}') for i in range(n)]
+        yival = [model.NewIntervalVar(y1[i], items[i].Dy, y2[i],f'yival{i}') for i in range(n)]
 
-        self.AddIncompatibilityCuts(incompatibleItems, lastFixedIndex, model, b)
+        self.AddIncompatibilityCuts(incompatibleItems, fixItemToBin, model, b)
 
-        totalArea = numpy.dot(w,h)
         lowerBoundBin = math.ceil(float(totalArea) / float(H * W))
 
         # objective
         z = model.NewIntVar(lowerBoundBin - 1, m - 1,'z')
 
-        #
         # constraints
-        #
-        for i in range(n):
+        for i, item in enumerate(items):
             model.Add(xb1[i] == x[i] + b[i]*W)
-            model.Add(xb2[i] == xb1[i] + w[i])
+            model.Add(xb2[i] == xb1[i] + item.Dx)
 
-        model.AddNoOverlap2D(xival,yival)
+        model.AddNoOverlap2D(xival, yival)
 
-        model.AddMaxEquality(z,[b[i] for i in range(n)])
+        model.AddMaxEquality(z, [b[i] for i in range(n)])
 
         # objective
         model.Minimize(z + 1)    
 
-        #
         # solve model
-        #
         solver = cp_model.CpSolver()
         # log does not work inside a Jupyter notebook
         solver.parameters.log_search_progress = enableLogging
@@ -176,18 +250,9 @@ class BinPackingSolverCP():
         #print(f"Objective:{solver.BestObjectiveBound()}")
         #print(f"Objective:{solver.ResponseProto()}")
         #print(f"Objective:{solver.ResponseStats()}")
-
-        """
-        if rc == 4:
-            df = pandas.DataFrame({ 
-                'bin' : [solver.Value(b[i]) for i in range(n)],
-                'x'   : [solver.Value(x[i]) for i in range(n)],
-                'y'   : [solver.Value(y1[i]) for i in range(n)],
-                'w'   : w,
-                'h'   : h})
-            #display(df)
-        """
         
+        status = solver.StatusName()
+
         self.IsOptimal = 1 if solver.StatusName() == 'OPTIMAL' else 0
         self.LB = solver.BestObjectiveBound()
         self.UB = solver.ObjectiveValue()
