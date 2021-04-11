@@ -58,7 +58,7 @@ class BinPacking2D:
         self.Bin = bin
 
     @staticmethod
-    def DetermineNormalPatterns(items, bin):
+    def DetermineNormalPatterns(items, bin, offsetX = 0):
         X = [0] * bin.Dx
         Y = [0] * bin.Dy
         X[0] = 1
@@ -81,13 +81,13 @@ class BinPacking2D:
                         Y[p + item.Dy] = 1
 
         normalPatternsX = []
-        for p in range (bin.Dx - 1, -1, -1):
-            if X[p] == 1 and p <= bin.Dx - minDx:
-                normalPatternsX.append(p)
+        for p in range (bin.Dx - minDx, -1, -1):
+            if X[p] == 1:
+                normalPatternsX.append(offsetX + p)
 
         normalPatternsY = []
-        for p in range (bin.Dy - 1, -1, -1):
-            if Y[p] == 1 and p <= bin.Dy - minDy:
+        for p in range (bin.Dy - minDy, -1, -1):
+            if Y[p] == 1:
                 normalPatternsY.append(p)
 
         return normalPatternsX, normalPatternsY
@@ -98,8 +98,10 @@ class BinPacking2D:
         # Consider modifying domains according to Cote, Iori (2018): The meet-in-the-middle principle for cutting and packing problems.
         for i, item in enumerate(self.Items):
 
-            x1 = self.Model.NewIntVarFromDomain(Domain.FromValues(normalPatternsX), f'x1.{i}')
-            x2 = self.Model.NewIntVarFromDomain(Domain.FromValues([x + item.Dx for x in normalPatternsX]), f'x2.{i}')
+            normalPatternsStartX = [p for p in normalPatternsX if p + item.Dx <= self.Bin.Dx]
+            normalPatternsEndX = [p + item.Dx for p in normalPatternsStartX]
+            x1 = self.Model.NewIntVarFromDomain(Domain.FromValues(normalPatternsStartX), f'x1.{i}')
+            x2 = self.Model.NewIntVarFromDomain(Domain.FromValues(normalPatternsEndX), f'x2.{i}')
 
             """
             x1 = self.Model.NewIntVar(0, self.Bin.Dx - item.Dx, f'x1.{i}')
@@ -109,8 +111,10 @@ class BinPacking2D:
             self.StartX.append(x1)
             self.EndX.append(x2)
 
-            y1 = self.Model.NewIntVarFromDomain(Domain.FromValues(normalPatternsY), f'y1.{i}')
-            y2 = self.Model.NewIntVarFromDomain(Domain.FromValues([y + item.Dy for y in normalPatternsY]), f'y2.{i}')
+            normalPatternsStartY = [p for p in normalPatternsY if p + item.Dy <= self.Bin.Dy]
+            normalPatternsEndY = [p + item.Dy for p in normalPatternsStartY]
+            y1 = self.Model.NewIntVarFromDomain(Domain.FromValues(normalPatternsStartY), f'y1.{i}')
+            y2 = self.Model.NewIntVarFromDomain(Domain.FromValues(normalPatternsEndY), f'y2.{i}')
 
             """
             y1 = self.Model.NewIntVar(0, self.Bin.Dy - item.Dy, f'y1.{i}')
@@ -246,6 +250,7 @@ class BinPackingCallback:
                 model._FeasibleSets.add(frozenset(itemIndices))
             else:
                 model._InfeasibleSets.add(frozenset(itemIndices))
+                model._CutCount += 1
                 BinPackingCallback.AddCut(itemIndices, model._VarsX, model._Bins, model)
 
     @staticmethod
@@ -258,10 +263,10 @@ class BinPackingMip:
     def __init__(self, enable2D = True):
         self.Model = gp.Model("BinPacking")
 
-        self.Model.Params.OutputFlag = 0
+        self.Model.Params.OutputFlag = 1
         self.Model.Params.lazyConstraints = 1
         self.Model.Params.MIPFocus = 2
-        self.Model.Params.TimeLimit = 480
+        self.Model.Params.TimeLimit = 480 if enable2D else 30
 
         self.Items = []
         self.Bins = []
@@ -365,6 +370,7 @@ class BinPackingMip:
         self.Model._VarsX = self.ItemVariables
         self.Model._FeasibleSets = set()
         self.Model._InfeasibleSets = set()
+        self.Model._CutCount = 0
         self.Model._InfeasibleDoubleCount = 0
 
     def DeterminePositions(self, itemIndicesArray, itemsInBinArray):
@@ -582,7 +588,7 @@ class BinPackingBranchAndCutSolver:
             h.append(item.Dy)
             w.append(item.Dx)
 
-        rectangles = solverCP.BinPackingErwin(h, w, H, W, m, 180, False, self.IncompatibleItems)
+        rectangles = solverCP.BinPackingErwin(items, h, w, H, W, m, 10, False, self.IncompatibleItems)
 
         if solverCP.LB == solverCP.UB:
             return True, solverCP.LB, "CP", rectangles
@@ -686,7 +692,9 @@ def main():
     solutions = {}
     # Single bin 2D-BPP CP model cannot prove feasibility/infeasibility on instances:
     # - 173 (strange behavior: initial num_bool: 1 even though there are no bools in the model)
-    for instance in range(332, 333):
+    #hardInstances = [173, 146, 292, 332]
+    for instance in range(332, 500):
+    #for instance in hardInstances:
         h, w, H, W, m = ReadBenchmarkData(instance)
         
         solver = BinPackingBranchAndCutSolver()
@@ -700,7 +708,7 @@ def main():
         solverType = solver.SolverType
         isOptimalMIP = solver.IsOptimal
         
-        #PlotSolution(upperBoundMIP * W, H, rectangles)
+        PlotSolution(upperBoundMIP * W, H, rectangles)
 
         if isOptimalMIP:
             print(f'Instance {instance}: Optimal solution = {int(bestBoundMIP)} found by {solverType} (#items = {len(h)})')
