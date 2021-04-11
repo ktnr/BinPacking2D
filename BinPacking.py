@@ -58,50 +58,202 @@ class BinPacking2D:
         self.Bin = bin
 
     @staticmethod
-    def DetermineNormalPatterns(items, bin, offsetX = 0):
-        X = [0] * bin.Dx
-        Y = [0] * bin.Dy
-        X[0] = 1
-        Y[0] = 1
+    def DetermineNormalPatternsX(items, binDx, offsetX = 0):
+        if binDx <= 0:
+            return []
 
-        minDx = bin.Dx
-        minDy = bin.Dy
+        X = [0] * (binDx + 1)
+        X[0] = 1
 
         for i, item in enumerate(items):
-            minDx = min(minDx, item.Dx)
-            minDy = min(minDy, item.Dy)
-            for p in range(bin.Dx - item.Dx, -1, -1):
+            for p in range(binDx - item.Dx, -1, -1):
                 if X[p] == 1:
-                    if p + item.Dx < bin.Dx:
-                        X[p + item.Dx] = 1
-
-            for p in range(bin.Dy - item.Dy, -1, -1):
-                if Y[p] == 1:
-                    if p + item.Dy < bin.Dy:
-                        Y[p + item.Dy] = 1
+                    X[p + item.Dx] = 1
 
         normalPatternsX = []
-        for p in range (bin.Dx - minDx, -1, -1):
+        for p in range (binDx, -1, -1):
             if X[p] == 1:
                 normalPatternsX.append(offsetX + p)
 
+        return normalPatternsX
+
+    @staticmethod
+    def DetermineNormalPatternsY(items, binDy):
+        if binDy <= 0:
+            return []
+
+        Y = [0] * (binDy + 1)
+        Y[0] = 1
+
+        for i, item in enumerate(items):
+            for p in range(binDy - item.Dy, -1, -1):
+                if Y[p] == 1:
+                    Y[p + item.Dy] = 1
+
         normalPatternsY = []
-        for p in range (bin.Dy - minDy, -1, -1):
+        for p in range (binDy, -1, -1):
             if Y[p] == 1:
                 normalPatternsY.append(p)
 
+        return normalPatternsY
+
+    @staticmethod
+    def DetermineNormalPatterns(items, binDx, binDy, offsetX = 0):
+        normalPatternsX = BinPacking2D.DetermineNormalPatternsX(items, binDx)
+        normalPatternsY = BinPacking2D.DetermineNormalPatternsY(items, binDy)
+
         return normalPatternsX, normalPatternsY
 
-    def CreateVariables(self):
-        normalPatternsX, normalPatternsY = BinPacking2D.DetermineNormalPatterns(self.Items, self.Bin)
+    @staticmethod
+    def DetermineMeetInTheMiddlePatternsX(items, itemI, binDx, t, offsetX = 0):
+        """
+        itemI = items[selectedItemIndex]
+        filteredItems = []
+        for i, item in enumerate(items):
+            if i == selectedItemIndex:
+                continue
+            filteredItems.append(item)
+        """
 
+        meetInTheMiddlePoints = BinPacking2D.DetermineNormalPatternsX(items, min(t - 1, binDx - itemI.Dx), offsetX) # placemenetPointsLeft
+        placemenetPointsRightPrime = BinPacking2D.DetermineNormalPatternsX(items, binDx - itemI.Dx - t, offsetX)
+
+        for p in placemenetPointsRightPrime:
+            meetInTheMiddlePoints.append(binDx - itemI.Dx - p)
+
+        return meetInTheMiddlePoints
+
+
+    @staticmethod
+    def DetermineMeetInTheMiddlePatternsY(items, itemI, binDy, t):
+        """
+        itemI = items[selectedItemIndex]
+        filteredItems = []
+        for i, item in enumerate(items):
+            if i == selectedItemIndex:
+                continue
+            filteredItems.append(item)
+        """
+
+        meetInTheMiddlePoints = BinPacking2D.DetermineNormalPatternsY(items, min(t - 1, binDy - itemI.Dy)) # placemenetPointsLeft
+        placemenetPointsRightPrime = BinPacking2D.DetermineNormalPatternsY(items, binDy - itemI.Dy - t)
+
+        for p in placemenetPointsRightPrime:
+            meetInTheMiddlePoints.append(binDy - itemI.Dy - p)
+
+        return meetInTheMiddlePoints
+
+    @staticmethod
+    def DetermineMeetInTheMiddlePatterns(items, itemI, binDx, binDy, offsetX = 0):
+        meetInTheMiddlePointsX = []
+        meetInTheMiddlePointsY = []
+        for t in range(1, binDx + 1):
+            meetInTheMiddlePoints = BinPacking2D.DetermineMeetInTheMiddlePatternsX(items, itemI, binDx, t, offsetX)
+            meetInTheMiddlePointsX.extend(meetInTheMiddlePoints)
+
+        for t in range(1, binDy + 1):
+            meetInTheMiddlePoints = BinPacking2D.DetermineMeetInTheMiddlePatternsY(items, itemI, binDy, t)
+            meetInTheMiddlePointsY.extend(meetInTheMiddlePoints)
+
+        return meetInTheMiddlePointsX, meetInTheMiddlePointsY
+        
+    @staticmethod
+    def DetermineMinimalMeetInTheMiddlePatternsX(items, itemI, binDx, offsetX = 0):
+        meetInTheMiddlePointsLeftX = [0] * (binDx + 1)
+        meetInTheMiddlePointsRightX = [0] * (binDx + 1)
+
+        normalPatternsX = BinPacking2D.DetermineNormalPatternsX(items, binDx - itemI.Dx, offsetX)
+
+        regularNormalPatterns = set(normalPatternsX)
+        for p in regularNormalPatterns:
+            meetInTheMiddlePointsLeftX[p] = 1 # meetInTheMiddlePointsLeftX[p] + 1
+            meetInTheMiddlePointsRightX[binDx - itemI.Dx - p] = 1
+
+        for p in range(1, binDx):
+            meetInTheMiddlePointsLeftX[p] = meetInTheMiddlePointsLeftX[p] + meetInTheMiddlePointsLeftX[p - 1]
+            meetInTheMiddlePointsRightX[binDx - p] = meetInTheMiddlePointsRightX[binDx - p] + meetInTheMiddlePointsRightX[binDx - (p - 1)]
+
+        tMin = 1
+        minX = meetInTheMiddlePointsLeftX[0] + meetInTheMiddlePointsRightX[1]
+
+        for p in range(2, binDx):
+            if meetInTheMiddlePointsLeftX[p - 1] + meetInTheMiddlePointsRightX[p] < minX:
+                minX = meetInTheMiddlePointsLeftX[p - 1] + meetInTheMiddlePointsRightX[p]
+                tMin = p
+
+        meetInTheMiddlePointsX = []
+        for p in regularNormalPatterns:
+            if p < tMin:
+                meetInTheMiddlePointsX.append(p)
+
+            if binDx - itemI.Dx - p >= tMin:
+                meetInTheMiddlePointsX.append(binDx - itemI.Dx - p)
+
+        return meetInTheMiddlePointsX
+        
+    @staticmethod
+    def DetermineMinimalMeetInTheMiddlePatternsY(items, itemI, binDy):
+        meetInTheMiddlePointsLeftY = [0] * (binDy + 1)
+        meetInTheMiddlePointsRightY = [0] * (binDy + 1)
+
+        normalPatternsY = BinPacking2D.DetermineNormalPatternsY(items, binDy - itemI.Dy)
+
+        regularNormalPatterns = set(normalPatternsY)
+        for p in regularNormalPatterns:
+            meetInTheMiddlePointsLeftY[p] = 1 # meetInTheMiddlePointsLeftX[p] + 1
+            meetInTheMiddlePointsRightY[binDy - itemI.Dy - p] = 1
+
+        for p in range(1, binDy):
+            meetInTheMiddlePointsLeftY[p] = meetInTheMiddlePointsLeftY[p] + meetInTheMiddlePointsLeftY[p - 1]
+            meetInTheMiddlePointsRightY[binDy - p] = meetInTheMiddlePointsRightY[binDy - p] + meetInTheMiddlePointsRightY[binDy - (p - 1)]
+
+        tMin = 1
+        minX = meetInTheMiddlePointsLeftY[0] + meetInTheMiddlePointsRightY[1]
+
+        for p in range(2, binDy):
+            if meetInTheMiddlePointsLeftY[p - 1] + meetInTheMiddlePointsRightY[p] < minX:
+                minX = meetInTheMiddlePointsLeftY[p - 1] + meetInTheMiddlePointsRightY[p]
+                tMin = p
+
+        meetInTheMiddlePointsY = []
+        for p in regularNormalPatterns:
+            if p < tMin:
+                meetInTheMiddlePointsY.append(p)
+
+            if binDy - itemI.Dy - p >= tMin:
+                meetInTheMiddlePointsY.append(binDy - itemI.Dy - p)
+
+        return meetInTheMiddlePointsY
+        
+    @staticmethod
+    def DetermineMinimalMeetInTheMiddlePatterns(items, itemI, binDx, binDy, offsetX = 0):
+        meetInTheMiddlePointsX = BinPacking2D.DetermineMinimalMeetInTheMiddlePatternsX(items, itemI, binDx, offsetX)
+        meetInTheMiddlePointsY = BinPacking2D.DetermineMinimalMeetInTheMiddlePatternsY(items, itemI, binDy)
+
+        return meetInTheMiddlePointsX, meetInTheMiddlePointsY
+
+    def CreateVariables(self):
+        binDx = self.Bin.Dx
+        binDy = self.Bin.Dy
         # Consider modifying domains according to Cote, Iori (2018): The meet-in-the-middle principle for cutting and packing problems.
         for i, item in enumerate(self.Items):
+        
+            filteredItems = [itemJ for j, itemJ in enumerate(self.Items) if i != j]
+            placementPointsX, placementPointsY = BinPacking2D.DetermineMinimalMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy)
+            placementPointsSetMiMX, placementPointsSetMiMY = BinPacking2D.DetermineMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy)
+            placementPointsNPX, placementPointsNPY = BinPacking2D.DetermineNormalPatterns(filteredItems, binDx - item.Dx, binDy - item.Dy)
 
-            normalPatternsStartX = [p for p in normalPatternsX if p + item.Dx <= self.Bin.Dx]
-            normalPatternsEndX = [p + item.Dx for p in normalPatternsStartX]
-            x1 = self.Model.NewIntVarFromDomain(Domain.FromValues(normalPatternsStartX), f'x1.{i}')
-            x2 = self.Model.NewIntVarFromDomain(Domain.FromValues(normalPatternsEndX), f'x2.{i}')
+            a, b = set(placementPointsX), set(placementPointsY)
+            c, d = set(placementPointsSetMiMX), set(placementPointsSetMiMY)
+            e, f = set(placementPointsNPX), set(placementPointsNPY)
+
+            #if len(a) + len(b) > len(e) + len(f):
+            #print(f'MiM-min\t ({len(a)} / {len(b)})\nMiM\t ({len(c)} / {len(d)})\nNP ({len(e)} / {len(f)})\n')
+
+            placementPointsStartX = [p for p in placementPointsX if p + item.Dx <= binDx] # unnecessary, is satisfied by construction
+            placementPointsEndX = [p + item.Dx for p in placementPointsStartX]
+            x1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsStartX), f'x1.{i}')
+            x2 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsEndX), f'x2.{i}')
 
             """
             x1 = self.Model.NewIntVar(0, self.Bin.Dx - item.Dx, f'x1.{i}')
@@ -111,10 +263,10 @@ class BinPacking2D:
             self.StartX.append(x1)
             self.EndX.append(x2)
 
-            normalPatternsStartY = [p for p in normalPatternsY if p + item.Dy <= self.Bin.Dy]
-            normalPatternsEndY = [p + item.Dy for p in normalPatternsStartY]
-            y1 = self.Model.NewIntVarFromDomain(Domain.FromValues(normalPatternsStartY), f'y1.{i}')
-            y2 = self.Model.NewIntVarFromDomain(Domain.FromValues(normalPatternsEndY), f'y2.{i}')
+            placementPointsStartY = [p for p in placementPointsY if p + item.Dy <= binDy]  # is satisfied by construction
+            placementPointsEndY = [p + item.Dy for p in placementPointsStartY]
+            y1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsStartY), f'y1.{i}')
+            y2 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsEndY), f'y2.{i}')
 
             """
             y1 = self.Model.NewIntVar(0, self.Bin.Dy - item.Dy, f'y1.{i}')
@@ -278,6 +430,8 @@ class BinPackingMip:
 
         self.Enable2D = enable2D
 
+        self.LowerBoundBin = 0
+
     def AddItems(self, items):
         self.Items = items
 
@@ -326,9 +480,9 @@ class BinPackingMip:
             lb1D = math.ceil(model1D.objBound)
             # TODO add bound lifted indicator to solution statistic
 
-        lowerBoundBin = max(lowerBoundBinArea, lb1D)
+        self.LowerBoundBin = max(lowerBoundBinArea, lb1D)
 
-        for b in range(lowerBoundBin):
+        for b in range(self.LowerBoundBin):
             self.BinVariables[b].LB = 1.0
 
     def CreateConstraints(self):
@@ -579,7 +733,7 @@ class BinPackingBranchAndCutSolver:
         self.Runtime = model.Runtime
         self.SolverType = "B&C"
 
-    def DetermineStartSolution(self, items, H, W, m):
+    def DetermineStartSolution(self, items, H, W, lowerBoundBin, m):
         solverCP = BinPackingSolverCP()
         
         h = []
@@ -588,7 +742,7 @@ class BinPackingBranchAndCutSolver:
             h.append(item.Dy)
             w.append(item.Dx)
 
-        rectangles = solverCP.BinPackingErwin(items, h, w, H, W, m, 10, False, self.IncompatibleItems)
+        rectangles = solverCP.BinPackingErwin(items, h, w, H, W, lowerBoundBin, m, 30, False, self.IncompatibleItems)
 
         if solverCP.LB == solverCP.UB:
             return True, solverCP.LB, "CP", rectangles
@@ -669,7 +823,7 @@ class BinPackingBranchAndCutSolver:
         
         #self.BinPacking.Model.write('BPP.lp')
 
-        isOptimalCP, lbCP, solverType, rectangles = self.DetermineStartSolution(items, H, W, m)
+        isOptimalCP, lbCP, solverType, rectangles = self.DetermineStartSolution(items, H, W, self.BinPacking.LowerBoundBin, m)
 
         if isOptimalCP:
             self.IsOptimal = 1
@@ -692,9 +846,9 @@ def main():
     solutions = {}
     # Single bin 2D-BPP CP model cannot prove feasibility/infeasibility on instances:
     # - 173 (strange behavior: initial num_bool: 1 even though there are no bools in the model)
-    #hardInstances = [173, 146, 292, 332]
-    for instance in range(332, 500):
-    #for instance in hardInstances:
+    hardInstances = [173, 146, 292, 332]
+    #for instance in range(332, 500):
+    for instance in hardInstances:
         h, w, H, W, m = ReadBenchmarkData(instance)
         
         solver = BinPackingBranchAndCutSolver()

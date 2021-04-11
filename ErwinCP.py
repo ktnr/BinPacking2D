@@ -79,14 +79,14 @@ class BinPackingSolverCP():
 
         # Determine placement points for specific items depending on the combination with every other compatible item.
         for i, itemI in enumerate(items):
-            itemSubset = [itemI]
+            itemSubset = []
             for j, itemJ in enumerate(items):
                 if (fixItemToBin[i] and fixItemToBin[j]) or i == j or (i, j) in incompatibleItems:
                     continue
 
                 itemSubset.append(itemJ)
 
-            normalPatternsX, normalPatternsY = BinPacking2D.DetermineNormalPatterns(itemSubset, bin)
+            normalPatternsX, normalPatternsY = BinPacking2D.DetermineNormalPatterns(itemSubset, bin.Dx - itemI.Dx, bin.Dy - itemI.Dx)
             itemSpecificNormalPatternsX.append(normalPatternsX)
             itemSpecificNormalPatternsY.append(normalPatternsY)
 
@@ -96,13 +96,13 @@ class BinPackingSolverCP():
             itemBinNormalPatternsX.append([])
 
             if fixItemToBin[i]:
-                itemSubset = [itemI]
+                itemSubset = []
                 for j, itemJ in enumerate(items):
                     if fixItemToBin[j] or j <= i or (i, j) in incompatibleItems:
                         continue
                     itemSubset.append(itemJ)
 
-                fixedBinNormalPatternsX, fixedBinNormalPatternsY = BinPacking2D.DetermineNormalPatterns(itemSubset, bin, i*bin.Dx)
+                fixedBinNormalPatternsX, fixedBinNormalPatternsY = BinPacking2D.DetermineNormalPatterns(itemSubset, bin.Dx - itemI.Dx, bin.Dy - itemI.Dy, i*bin.Dx)
                 itemBinNormalPatternsX[i].extend(fixedBinNormalPatternsX)
 
                 continue
@@ -111,14 +111,14 @@ class BinPackingSolverCP():
                 if b > i:
                     break
 
-                itemSubset = [itemI]
+                itemSubset = []
                 for j, itemJ in enumerate(items):
                     if i == j or b > j or (i, j) in incompatibleItems:
                         continue
                     
                     itemSubset.append(itemJ)
 
-                binSpecificNormalPatternsX, binSpecificNormalPatternsY = BinPacking2D.DetermineNormalPatterns(itemSubset, bin, b*bin.Dx)
+                binSpecificNormalPatternsX, binSpecificNormalPatternsY = BinPacking2D.DetermineNormalPatterns(itemSubset, bin.Dx - itemI.Dx, bin.Dy - itemI.Dy, b*bin.Dx)
                 itemBinNormalPatternsX[i].extend(binSpecificNormalPatternsX)
 
         return itemSpecificNormalPatternsX, itemSpecificNormalPatternsY, itemBinNormalPatternsX
@@ -135,7 +135,7 @@ class BinPackingSolverCP():
 
     """ from https://yetanothermathprogrammingconsultant.blogspot.com/2021/02/2d-bin-packing-with-google-or-tools-cp.html 
     https://yetanothermathprogrammingconsultant.blogspot.com/2021/02/2d-bin-packing.html """
-    def BinPackingErwin(self, items, h, w, H, W, m, timeLimit = 3600, enableLogging = True, incompatibleItems = None):
+    def BinPackingErwin(self, items, h, w, H, W, lowerBoundBin, m, timeLimit = 3600, enableLogging = True, incompatibleItems = None):
 
         n = len(items)
 
@@ -220,10 +220,11 @@ class BinPackingSolverCP():
 
         self.AddIncompatibilityCuts(incompatibleItems, fixItemToBin, model, b)
 
-        lowerBoundBin = math.ceil(float(totalArea) / float(H * W))
+        lowerBoundAreaBin = math.ceil(float(totalArea) / float(H * W))
+        lowerBound = min(lowerBoundAreaBin, lowerBoundBin)
 
         # objective
-        z = model.NewIntVar(lowerBoundBin - 1, m - 1,'z')
+        z = model.NewIntVar(lowerBound - 1, m - 1,'z')
 
         # constraints
         for i, item in enumerate(items):
