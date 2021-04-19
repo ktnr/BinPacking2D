@@ -81,7 +81,7 @@ class BinPackingSolverCP():
         for i, itemI in enumerate(items):
             itemSubset = []
             for j, itemJ in enumerate(items):
-                if (fixItemToBin[i] and fixItemToBin[j]) or i == j or (i, j) in incompatibleItems:
+                if (fixItemToBin[i] and fixItemToBin[j]) or i == j or frozenset((i, j)) in incompatibleItems:
                     continue
 
                 itemSubset.append(itemJ)
@@ -98,7 +98,7 @@ class BinPackingSolverCP():
             if fixItemToBin[i]:
                 itemSubset = []
                 for j, itemJ in enumerate(items):
-                    if fixItemToBin[j] or j <= i or (i, j) in incompatibleItems:
+                    if fixItemToBin[j] or j <= i or frozenset((i, j)) in incompatibleItems:
                         continue
                     itemSubset.append(itemJ)
 
@@ -113,7 +113,7 @@ class BinPackingSolverCP():
 
                 itemSubset = []
                 for j, itemJ in enumerate(items):
-                    if i == j or b > j or (i, j) in incompatibleItems:
+                    if i == j or b > j or frozenset((i, j)) in incompatibleItems:
                         continue
                     
                     itemSubset.append(itemJ)
@@ -162,7 +162,7 @@ class BinPackingSolverCP():
         totalArea = 0.0
         for i, item in enumerate(items):
 
-            totalArea += item.Dx + item.Dy
+            totalArea += item.Dx * item.Dy
 
             f = model.NewIntVarFromDomain(Domain.FromValues(binDomains[i]), f'b{i}')
             b.append(f)
@@ -207,8 +207,8 @@ class BinPackingSolverCP():
                     boundedM = i if i < m else m - 1
 
                     # TODO: apply bin domains to these variables
-                    d = model.NewIntVar(0, boundedM*W - item.Dx, f'xb1.{i}')
-                    e = model.NewIntVar(item.Dx, boundedM*W, f'xb2.{i}')
+                    d = model.NewIntVar(0, (boundedM + 1) * W - item.Dx, f'xb1.{i}')
+                    e = model.NewIntVar(item.Dx, (boundedM + 1) * W, f'xb2.{i}')
                     
                     xb1.append(d)
                     xb2.append(e)
@@ -218,6 +218,8 @@ class BinPackingSolverCP():
         xival = [model.NewIntervalVar(xb1[i], items[i].Dx, xb2[i],f'xival{i}') for i in range(n)]
         yival = [model.NewIntervalVar(y1[i], items[i].Dy, y2[i],f'yival{i}') for i in range(n)]
 
+        # Also add lifted cuts from MIP via https://developers.google.com/optimization/reference/python/sat/python/cp_model#addforbiddenassignments
+        #model.AddForbiddenAssignments([b[1], b[2]], [(0, 0), (1, 1)])
         self.AddIncompatibilityCuts(incompatibleItems, fixItemToBin, model, b)
 
         lowerBoundAreaBin = math.ceil(float(totalArea) / float(H * W))
@@ -229,7 +231,7 @@ class BinPackingSolverCP():
         # constraints
         for i, item in enumerate(items):
             model.Add(xb1[i] == x[i] + b[i]*W)
-            model.Add(xb2[i] == xb1[i] + item.Dx)
+            model.Add(xb2[i] == xb1[i] + item.Dx) # should already be ensured by interval vars xival
 
         model.AddNoOverlap2D(xival, yival)
 
@@ -244,6 +246,10 @@ class BinPackingSolverCP():
         solver.parameters.log_search_progress = enableLogging
         solver.parameters.max_time_in_seconds = timeLimit
         solver.parameters.num_search_workers = 8
+
+        #with open(f"Model_{0}.txt","a") as f:
+        #    f.write(str(model.Proto()))
+
         rc = solver.Solve(model)
         #print(f"return code:{rc}")
         #print(f"status:{solver.StatusName()}")
