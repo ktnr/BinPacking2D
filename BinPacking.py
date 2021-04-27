@@ -10,11 +10,22 @@ import json
 from ortools.sat.python import cp_model
 from ortools.sat.python.cp_model import Domain
 
+import networkx as nx
+from networkx.algorithms.approximation import clique
+
 from BinPackingData import *
 from ErwinCP import *
 
 """ Datasets at https://github.com/Oscar-Oliveira/OR-Datasets/tree/master/Cutting-and-Packing/2D/Datasets """
 import time
+
+from enum import IntEnum
+
+class PlacementPointStrategy(IntEnum):
+    UnitDiscretization = 0
+    NormalPatterns = 1
+    MeetInTheMiddlePatterns = 2
+    MinimalMeetInTheMiddlePatterns = 3
 
 class Item:
     def __init__(self, id, dx, dy):
@@ -160,7 +171,7 @@ class BinPacking2D:
     @staticmethod
     def DetermineNormalPatternsX(items, binDx, offsetX = 0):
         if binDx <= 0:
-            return []
+            return [0]
 
         X = [0] * (binDx + 1)
         X[0] = 1
@@ -180,7 +191,7 @@ class BinPacking2D:
     @staticmethod
     def DetermineNormalPatternsY(items, binDy):
         if binDy <= 0:
-            return []
+            return [0]
 
         Y = [0] * (binDy + 1)
         Y[0] = 1
@@ -244,26 +255,29 @@ class BinPacking2D:
 
     @staticmethod
     def DetermineMeetInTheMiddlePatterns(items, itemI, binDx, binDy, offsetX = 0):
-        meetInTheMiddlePointsX = []
-        meetInTheMiddlePointsY = []
+        meetInTheMiddlePointsX = set()
+        meetInTheMiddlePointsY = set()
         for t in range(1, binDx + 1):
             meetInTheMiddlePoints = BinPacking2D.DetermineMeetInTheMiddlePatternsX(items, itemI, binDx, t, offsetX)
-            meetInTheMiddlePointsX.extend(meetInTheMiddlePoints)
+            #meetInTheMiddlePointsX.extend(meetInTheMiddlePoints)
+            meetInTheMiddlePointsX.update(meetInTheMiddlePoints)
 
         for t in range(1, binDy + 1):
             meetInTheMiddlePoints = BinPacking2D.DetermineMeetInTheMiddlePatternsY(items, itemI, binDy, t)
-            meetInTheMiddlePointsY.extend(meetInTheMiddlePoints)
+            #meetInTheMiddlePointsY.extend(meetInTheMiddlePoints)
+            meetInTheMiddlePointsY.update(meetInTheMiddlePoints)
 
-        return meetInTheMiddlePointsX, meetInTheMiddlePointsY
+        return list(meetInTheMiddlePointsX), list(meetInTheMiddlePointsY)
         
     @staticmethod
     def DetermineMinimalMeetInTheMiddlePatternsX(items, itemI, binDx, offsetX = 0):
         meetInTheMiddlePointsLeftX = [0] * (binDx + 1)
         meetInTheMiddlePointsRightX = [0] * (binDx + 1)
 
-        normalPatternsX = BinPacking2D.DetermineNormalPatternsX(items, binDx - itemI.Dx, offsetX)
+        regularNormalPatterns = BinPacking2D.DetermineNormalPatternsX(items, binDx - itemI.Dx, offsetX)
+        #normalPatternsX = BinPacking2D.DetermineNormalPatternsX(items, binDx - itemI.Dx, offsetX)
 
-        regularNormalPatterns = set(normalPatternsX)
+        #regularNormalPatterns = set(normalPatternsX)
         for p in regularNormalPatterns:
             meetInTheMiddlePointsLeftX[p] = 1 # meetInTheMiddlePointsLeftX[p] + 1
             meetInTheMiddlePointsRightX[binDx - itemI.Dx - p] = 1
@@ -331,7 +345,7 @@ class BinPacking2D:
 
         return meetInTheMiddlePointsX, meetInTheMiddlePointsY
 
-    def CreateVariables(self):
+    def CreateVariables(self, placementPointStrategy):
         binDx = self.Bin.Dx
         binDy = self.Bin.Dy
         # Consider modifying domains according to Cote, Iori (2018): The meet-in-the-middle principle for cutting and packing problems.
@@ -339,30 +353,22 @@ class BinPacking2D:
         
             filteredItems = [itemJ for j, itemJ in enumerate(self.Items) if i != j]
 
-            placementPointsX = range(0, binDx + 1 - item.Dx)
-            placementPointsY = range(0, binDy + 1 - item.Dy)
-            #placementPointsX, placementPointsY = BinPacking2D.DetermineMinimalMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy)
-            
-            #placementPointsSetMiMX, placementPointsSetMiMY = BinPacking2D.DetermineMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy)
-            #placementPointsXNP, placementPointsYNP = BinPacking2D.DetermineNormalPatterns(filteredItems, binDx - item.Dx, binDy - item.Dy)
-
-
-            #a, b = set(placementPointsX), set(placementPointsY)
-            #c, d = set(placementPointsSetMiMX), set(placementPointsSetMiMY)
-            #e, f = set(placementPointsNPX), set(placementPointsNPY)
-
-            #if len(a) + len(b) > len(e) + len(f):
-            #print(f'MiM-min\t ({len(a)} / {len(b)})\nMiM\t ({len(c)} / {len(d)})\nNP ({len(e)} / {len(f)})\n')
+            if placementPointStrategy == PlacementPointStrategy.UnitDiscretization:
+                placementPointsX = range(0, binDx + 1 - item.Dx)
+                placementPointsY = range(0, binDy + 1 - item.Dy)
+            elif placementPointStrategy == PlacementPointStrategy.NormalPatterns:
+                placementPointsX, placementPointsY = BinPacking2D.DetermineNormalPatterns(filteredItems, binDx - item.Dx, binDy - item.Dy)
+            elif placementPointStrategy == PlacementPointStrategy.MeetInTheMiddlePatterns:
+                placementPointsX, placementPointsY = BinPacking2D.DetermineMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy)
+            elif placementPointStrategy == PlacementPointStrategy.MinimalMeetInTheMiddlePatterns:
+                placementPointsX, placementPointsY = BinPacking2D.DetermineMinimalMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy)
+            else:
+                raise ValueError('UnkownPlacementPointStrategy')
 
             placementPointsStartX = [p for p in placementPointsX if p + item.Dx <= binDx] # unnecessary, is satisfied by construction
             placementPointsEndX = [p + item.Dx for p in placementPointsStartX]
             x1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsStartX), f'x1.{i}')
             x2 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsEndX), f'x2.{i}')
-
-            """
-            x1 = self.Model.NewIntVar(0, self.Bin.Dx - item.Dx, f'x1.{i}')
-            x2 = self.Model.NewIntVar(item.Dx, self.Bin.Dx, f'x2.{i}')
-            """
 
             self.StartX.append(x1)
             self.EndX.append(x2)
@@ -371,11 +377,6 @@ class BinPacking2D:
             placementPointsEndY = [p + item.Dy for p in placementPointsStartY]
             y1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsStartY), f'y1.{i}')
             y2 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsEndY), f'y2.{i}')
-
-            """
-            y1 = self.Model.NewIntVar(0, self.Bin.Dy - item.Dy, f'y1.{i}')
-            y2 = self.Model.NewIntVar(item.Dy, self.Bin.Dy, f'y2.{i}')
-            """
 
             self.StartY.append(y1)
             self.EndY.append(y2)
@@ -406,7 +407,7 @@ class BinPacking2D:
 
         self.Solver = cp_model.CpSolver()
         self.Solver.parameters.log_search_progress = False 
-        self.Solver.parameters.num_search_workers = 1
+        self.Solver.parameters.num_search_workers = 8
         #self.Solver.parameters.max_time_in_seconds = 10
         #solver.parameters.cp_model_presolve = False
 
@@ -599,7 +600,7 @@ class BinPackingCallback:
             binPacking2D.AddBin(model._Bins[0]) # homoegeneous bins
             binPacking2D.AddItems(sortedItems)
 
-            binPacking2D.CreateVariables()
+            binPacking2D.CreateVariables(model._PlacementPointStrategy)
             binPacking2D.CreateConstraints()
 
             isFeasible = binPacking2D.Solve()
@@ -686,7 +687,7 @@ class BinPackingCallback:
             binPacking2D.AddBin(model._Bins[b]) # homoegeneous bins
             binPacking2D.AddItems(itemsInBin)
 
-            binPacking2D.CreateVariables()
+            binPacking2D.CreateVariables(model._PlacementPointStrategy)
             binPacking2D.CreateConstraints()
 
             isFeasible = binPacking2D.Solve()
@@ -707,7 +708,7 @@ class BinPackingCallback:
                     BinPackingCallback.AddStrengthenedCut(itemsInBin, b, model)
                 else:
                     minItemId = min(itemIndices)
-                    BinPackingCallback.AddCut(itemIndices, model._VarsX, [id for id, bin in model._Bins if id <= minItemId], model)
+                    BinPackingCallback.AddCut(itemIndices, model._VarsX, [id for id, bin in enumerate(model._Bins) if id <= minItemId], model)
 
                 infeasibleSubproblems += 1
 
@@ -849,9 +850,12 @@ class BinPackingMip:
         self.Model._KnapsackTimeLifting = 0.0
         self.Model._BinPackingTimeStrengthening = 0.0
         self.Model._BinPackingTimeSeparation = 0.0
-        self.Model._EnableLifting = True
+        self.Model._EnableLifting = False
         self.Model._EnableCutStrengthening = True
         self.Model._InfeasibleSuproblemCutThreshold = 1
+        
+        self.Model._EnablePreprocessLifting = False
+        self.Model._PlacementPointStrategy = PlacementPointStrategy.MinimalMeetInTheMiddlePatterns
 
     def DeterminePositions(self, itemIndicesArray, itemsInBinArray):
         rectanglesArray = []
@@ -868,7 +872,7 @@ class BinPackingMip:
             binPacking2D.AddBin(bin) # homoegeneous bins
             binPacking2D.AddItems(itemsInBin)
 
-            binPacking2D.CreateVariables()
+            binPacking2D.CreateVariables(self.Model._PlacementPointStrategy)
             binPacking2D.CreateConstraints()
 
             isFeasible = binPacking2D.Solve()
@@ -876,7 +880,7 @@ class BinPackingMip:
             if not isFeasible:
                 raise ValueError('Packing must not be infeasible during solution extraction.')
 
-            binPacking2D.StartX
+            #binPacking2D.StartX
             
             xArray = []
             yArray = []
@@ -1004,45 +1008,53 @@ class BinPackingMip:
             model.addConstr(expr <= len(infeasibleItemSubset) - 1)
 
     def AddLiftedCut(self, infeasibleItemSubset, itemVariables, model):
-        objectiveCoefficients = [1 if i in infeasibleItemSubset else 0 for i in range(len(itemVariables))]
-        liftingCoefficients = list(objectiveCoefficients)
 
-        liftedSet = list(infeasibleItemSubset)
-        additionalItems = []
-        for i in range(len(itemVariables)):
-            if i in infeasibleItemSubset or model._FixItemToBin[i]:
+        minIdInitial = min(infeasibleItemSubset)
+        for b, bin in enumerate(model._Bins):
+            if b > minIdInitial:
                 continue
-
-            skipItem = False
-            for j in infeasibleItemSubset:
-                #isIncompatible = frozenset(i, j) in model._IncompatibleItems
-                if model._FixItemToBin[j] and frozenset((i, j)) in model._IncompatibleItems:
-                    skipItem = True
-                    break
             
-            if skipItem:
-                continue
+            objectiveCoefficients = [1 if i in infeasibleItemSubset else 0 for i in range(len(itemVariables))]
+            liftingCoefficients = list(objectiveCoefficients)
 
-            upperBound = BinPackingCallback.SolveKnapsack2D(liftedSet, i, model._FixItemToBin, model._Bins[0], objectiveCoefficients, model, 1.0)
-            
-            liftingCoefficient = len(infeasibleItemSubset) - 1 - upperBound
-            liftingCoefficients[i] = liftingCoefficient
-            if liftingCoefficient > 0:
-                # add to model._InfeasibleSets.add(frozenset(liftedSet)) ?
-                liftedSet.append(i)
-                additionalItems.append(i)
+            liftedSet = list(infeasibleItemSubset)
+            additionalItems = []
+            for i in range(len(itemVariables)):
+                if i in infeasibleItemSubset or i < b or (model._FixItemToBin[i] and b != i):# or i < minIdInitial: or model._FixItemToBin[i] 
+                    continue
 
-                objectiveCoefficients[i] = liftingCoefficient
+                skipItem = False
+                for j in liftedSet:
+                    #isIncompatible = frozenset(i, j) in model._IncompatibleItems
+                    if (model._FixItemToBin[j] and frozenset((i, j)) in model._IncompatibleItems):
+                        skipItem = True
+                        break
+                
+                if skipItem:
+                    continue
 
-        model._InfeasibleSets.add(frozenset(liftedSet))
-        minItemId = min(liftedSet)
+                upperBound = BinPackingCallback.SolveKnapsack2D(liftedSet, i, model._FixItemToBin, model._Bins[0], objectiveCoefficients, model, 1.0)
+                
+                liftingCoefficient = max(0, len(infeasibleItemSubset) - 1 - upperBound)
+                if liftingCoefficient > 0:
+                    liftingCoefficients[i] = liftingCoefficient
+                    liftedSet.append(i)
+                    additionalItems.append(i)
 
-        model._LiftedCuts += 1 if len(liftedSet) > len(infeasibleItemSubset) else 0
+                    model._InfeasibleSets.add(frozenset(liftedSet))
 
-        upperBoundBin = len(model._Items) #model.cbGet(GRB.Callback.MIPSOL_OBJ)
+                    objectiveCoefficients[i] = liftingCoefficient
 
-        filteredBins = [b for b, bin in enumerate(model._Bins) if b <= minItemId and b < upperBoundBin]
-        self.AddLiftedCoverInequality(infeasibleItemSubset, additionalItems, liftingCoefficients, itemVariables, filteredBins, model)
+            #model._InfeasibleSets.add(frozenset(liftedSet))
+            minItemId = min(liftedSet)
+
+            model._LiftedCuts += 1 if len(liftedSet) > len(infeasibleItemSubset) else 0
+
+            upperBoundBin = len(model._Items) #model.cbGet(GRB.Callback.MIPSOL_OBJ)
+
+            #filteredBins = [b for b, bin in enumerate(model._Bins) if b <= minIdInitial and b < upperBoundBin]
+            filteredBins = [b]
+            self.AddLiftedCoverInequality(infeasibleItemSubset, additionalItems, liftingCoefficients, itemVariables, filteredBins, model)
 
         return liftedSet, liftingCoefficients
 
@@ -1062,9 +1074,10 @@ class BinPackingMip:
             
             minItemId = min(incompatibleSet)
 
-            #liftedSet, liftingCoefficients = self.AddLiftedCut(incompatibleSet, self.ItemVariables, self.Model)
+            liftedSet, liftingCoefficients = self.AddLiftedCut(incompatibleSet, self.ItemVariables, self.Model)
             #liftedSets.add(frozenset(liftedSet))
             
+            """
             for b, bin in enumerate(self.Bins):
                 if b > minItemId:
                     break
@@ -1074,9 +1087,10 @@ class BinPackingMip:
                 #self.Model.addConstr(self.ItemVariables[b][i] + self.ItemVariables[b][j] <= 1)
                 expr = gp.LinExpr()
                 for k in incompatibleSet:
-                    expr += self.ItemVariables[b][k]
+                    expr += liftingCoefficients[k] * self.ItemVariables[b][k]
 
                 self.Model.addConstr(expr <= len(incompatibleSet) - 1)
+            """
 
     def ApplyPreprocessChanges(self, incompatibleItems):
         fixItemToBin = self.FixIncompatibleItems(incompatibleItems)
@@ -1159,7 +1173,7 @@ class BinPackingBranchAndCutSolver:
             h.append(item.Dy)
             w.append(item.Dx)
 
-        rectangles = solverCP.BinPackingErwin(items, h, w, H, W, lowerBoundBin, m, 360, False, self.IncompatibleItems)
+        rectangles = solverCP.BinPackingErwin(items, h, w, H, W, lowerBoundBin, m, 30, False, self.IncompatibleItems)
 
         if solverCP.LB == solverCP.UB:
             return True, solverCP.LB, "CP", rectangles
@@ -1220,6 +1234,32 @@ class BinPackingBranchAndCutSolver:
 
         self.DetermineConflicts(items, H, W)
 
+        conflictGraph = nx.Graph()
+        conflictGraph.add_nodes_from([item.Id for i, item in enumerate(items)])
+        for i in range(len(items)):
+            itemI = items[i]
+            for j in range(len(items)):
+                itemJ = items[j]
+                if frozenset((itemI.Id, itemJ.Id)) in self.IncompatibleItems:
+                    conflictGraph.add_edge(itemI.Id, itemJ.Id)
+
+        maxClique = clique.max_clique(conflictGraph)
+        sortedMaxClique = sorted(maxClique)
+
+        newItems = []
+        for i, oldIndex in enumerate(sortedMaxClique):
+            newItems.append(Item(i, items[oldIndex].Dx, items[oldIndex].Dy))
+        
+        for i, item in enumerate(items):
+            if item.Id in sortedMaxClique:
+                continue
+            newItems.append(Item(len(newItems), items[item.Id].Dx, items[item.Id].Dy))
+            
+        items = newItems
+
+        self.IncompatibleItems.clear()
+        self.DetermineConflicts(items, H, W)
+
         return items, m
 
     def Run(self, h, w, H, W, m):   
@@ -1241,7 +1281,7 @@ class BinPackingBranchAndCutSolver:
 
         isOptimalCP, lbCP, solverType, rectangles = self.DetermineStartSolution(items, H, W, self.BinPacking.LowerBoundBin, m)
 
-        if isOptimalCP:
+        if False:
             self.IsOptimal = 1
             self.LB = lbCP + len(self.RemovedItems)
             self.UB = lbCP + len(self.RemovedItems)
@@ -1260,14 +1300,14 @@ class BinPackingBranchAndCutSolver:
 def main():
     #h, w, H, W, m = ReadExampleData()
     solutions = {}
-    # Single bin 2D-BPP CP model takes ages to prove feasibility/infeasibility on instances: 173, 292
+    # Single bin 2D-BPP CP model takes ages to prove feasibility/infeasibility on instances: 173, 262, 292, 297, 298, 317
     # Meet in the middle produces erroneous 1D KP instances for instances 11
-    # Postsolve error: 51, 45, 125/126, 31, 26 or 27
+    # Postsolve error: 51, 45, 125/126, 31, 26 or 27, 311
     # Double count: 21, 22, 26, 27, 31, 32
     # Negative lifting coefficient: 120, 123, 
-    #hardInstances = [292, 332, 173, 187, 188, 191, 197, 142, 143, 145, 146]
+    #hardInstances = [226, 232, 242, 242, 244, 245, 247, 248, 249, 261, 292, 313, 314, 332, 173, 187, 188, 191, 197, 142, 143, 145, 146, 149]
     #mediumInstance = [149, 174]
-    for instance in range(149, 500):
+    for instance in range(1, 174):
     #for instance in hardInstances:
         h, w, H, W, m = ReadBenchmarkData(instance)
         
