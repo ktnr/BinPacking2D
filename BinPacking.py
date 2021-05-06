@@ -1281,7 +1281,7 @@ class BinPackingBranchAndCutSolver:
 
         isOptimalCP, lbCP, solverType, rectangles = self.DetermineStartSolution(items, H, W, self.BinPacking.LowerBoundBin, m)
 
-        if False:
+        if isOptimalCP:
             self.IsOptimal = 1
             self.LB = lbCP + len(self.RemovedItems)
             self.UB = lbCP + len(self.RemovedItems)
