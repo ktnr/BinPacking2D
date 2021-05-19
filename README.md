@@ -61,7 +61,7 @@ The algorithm produces optimal solutions for a majority of the 500 benchmark ins
 
 By far the most impactful algorithmic components are
 - symmetry breaking constraints (24) and (25) of the original paper (arXiv version),
-- removing large items, fixing conflicting items to bins (27), 
+- removing large items and fixing conflicting items to bins (27) in accordance with (24) and (25), 
 - and excluding pairwise incompatible items from bins with fixed items (26),
 - no-good cuts of type (4),
 - strong constraint programming formulations for the start solution (2D-BPP) and subproblems (2D-Knapsack) by reducing decision variable domains as much as possible, i.e. reducing available placement points through the techniques mentioned above and placement point patterns such as the meet-in-the-middle patterns.
