@@ -6,7 +6,7 @@ In contrast to the original paper, this implementation uses constraint programmi
 
 ## Algorithmic outline
 
-The two-dimensional bin packing problem (2D-BPP) is decomposed into a master problem and several subproblems. The master problem is a (one-dimensional) BPP, which assigns items to bins. Feasibility of each bin assignment is then checked in a separate two-dimensional knapsack subproblem.
+The two-dimensional bin packing problem (2D-BPP) is decomposed into a master problem and several subproblems. The master problem is a (one-dimensional) BPP, which assigns items to bins. Feasibility of each bin assignment is then checked in a separate two-dimensional knapsack/orthogonal packing (2D-KP/2D-OPP) subproblem.
 
 The master problem is modeled as a MIP and solved using [Gurobi](https://www.gurobi.com/). Callbacks are set at integer nodes, where the subproblems are generated and solved by constraint programming (CP) using [google or-tools](https://developers.google.com/optimization/cp/cp_solver). When an infeasible subproblem is found, a cut of the form
 
@@ -57,7 +57,7 @@ Instance 11: Optimal solution = 10 found by B&C (#items = 40)
 ```
 
 ## Evaluation
-The algorithm produces optimal solutions for a majority of the 500 benchmark instances in less than 20 minutes. It has difficulty in proving feasibility/infeasibility of 2D-Knapsack subproblems for instances with many small items (e.g. google's CP-SAT solver takes more than 1000 seconds to solve a single 2D-Knapsack problem for benchmark instance 173). 
+The algorithm produces optimal solutions for a majority of the 500 benchmark instances in less than 20 minutes. It has difficulty in proving feasibility/infeasibility of 2D-OPP subproblems for instances with many small items (e.g. google's CP-SAT solver takes more than 1000 seconds to solve a single 2D-OPP for benchmark instance 173). 
 
 By far the most impactful algorithmic components are
 - symmetry breaking constraints (24) and (25) of the original paper (arXiv version),
@@ -66,8 +66,8 @@ By far the most impactful algorithmic components are
 - no-good cuts of type (4),
 - strong constraint programming formulations for the start solution (2D-BPP) and subproblems (2D-Knapsack) by reducing decision variable domains as much as possible, i.e. reducing available placement points through the techniques mentioned above and placement point patterns such as the meet-in-the-middle patterns.
 
-The benefit of producing no-good cuts (29) from reduced feasible sets is only marginal. The benefit of lifting these cuts (30) is also only marginal, mainly due to the numerous 2D-Knapsack problems that must be solved. Hence, speeding up the solution of the 2D-Knapsack problem of Algorithm 2 (currently solved as 2D-Knapsack with google's CP-SAT and a time limit of 1 second) might increase the impact of lifting. 
+The benefit of producing no-good cuts (29) from reduced feasible sets is only marginal. The benefit of lifting these cuts (30) is also only marginal, mainly due to the numerous 2D-KPs that must be solved. Hence, speeding up the solution of the 2D-KP of Algorithm 2 (currently solved as 2D-KP with google's CP-SAT and a time limit of 1 second) might increase the impact of lifting. 
 
 Components with the greatest potential to improve solution times:
-- an efficient algorithm to prove feasibility/infeasibility of problematic 2D-Knapsack subproblems with numerous small items
+- an efficient algorithm to prove feasibility/infeasibility of problematic 2D-OPP subproblems with numerous small items
 - a variant of the BKRS lower bound (23)
