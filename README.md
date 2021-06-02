@@ -71,3 +71,4 @@ The benefit of producing no-good cuts (29) from reduced feasible sets is only ma
 Components with the greatest potential to improve solution times:
 - an efficient algorithm to prove feasibility/infeasibility of problematic 2D-OPP subproblems with numerous small items
 - a variant of the BKRS lower bound (23)
+- a heuristic algorithm to find feasible 2D-OPP solutions fast
