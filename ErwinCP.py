@@ -86,7 +86,7 @@ class BinPackingSolverCP():
 
                 itemSubset.append(itemJ)
 
-            normalPatternsX, normalPatternsY = BinPacking2D.DetermineNormalPatterns(itemSubset, bin.Dx - itemI.Dx, bin.Dy - itemI.Dx)
+            normalPatternsX, normalPatternsY = BinPacking2D.DetermineNormalPatterns(itemSubset, bin.Dx - itemI.Dx, bin.Dy - itemI.Dy)
             itemSpecificNormalPatternsX.append(normalPatternsX)
             itemSpecificNormalPatternsY.append(normalPatternsY)
 
