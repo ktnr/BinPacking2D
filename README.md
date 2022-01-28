@@ -23,7 +23,7 @@ The entry point is the `main()` method of `BinPacking.py`. Reading, writing and 
 
 The high level algorithm is implemented in the `BinPackingBranchAndCutSolver` class.
 ```
-itemHeights, itemWidths, binHeight, bindWidth, numberOfItems = ReadBenchmarkData(instance)
+itemHeights, itemWidths, binHeight, binWidth, numberOfItems = ReadBenchmarkData(instance)
         
 solver = BinPackingBranchAndCutSolver()
 rectangles = solver.Run(itemHeights, itemWidths, binHeight, bindWidth, numberOfItems)
