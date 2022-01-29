@@ -1,6 +1,8 @@
 from ortools.sat.python import cp_model
 from ortools.sat.python.cp_model import Domain
 
+from PlacementPoints import *
+
 class Knapsack2D:
     def __init__(self):
         self.Model = cp_model.CpModel()

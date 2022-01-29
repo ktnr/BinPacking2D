@@ -1,3 +1,11 @@
+from enum import IntEnum
+
+class PlacementPointStrategy(IntEnum):
+    UnitDiscretization = 0
+    NormalPatterns = 1
+    MeetInTheMiddlePatterns = 2
+    MinimalMeetInTheMiddlePatterns = 3
+
 class PlacementPointGenerator:
 
     @staticmethod

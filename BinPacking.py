@@ -8,7 +8,7 @@ import numpy
 from BinPackingData import *
 
 from Model import *
-from PlacementPoints import PlacementPointGenerator
+from PlacementPoints import *
 
 import matplotlib
 
@@ -88,7 +88,7 @@ class BinPackingSolverCP():
 
                 itemSubset.append(itemJ)
 
-            normalPatternsX, normalPatternsY = BinPacking2D.DetermineNormalPatterns(itemSubset, bin.Dx - itemI.Dx, bin.Dy - itemI.Dy)
+            normalPatternsX, normalPatternsY = PlacementPointGenerator.DetermineNormalPatterns(itemSubset, bin.Dx - itemI.Dx, bin.Dy - itemI.Dy)
             itemSpecificNormalPatternsX.append(normalPatternsX)
             itemSpecificNormalPatternsY.append(normalPatternsY)
 
@@ -104,7 +104,7 @@ class BinPackingSolverCP():
                         continue
                     itemSubset.append(itemJ)
 
-                fixedBinNormalPatternsX, fixedBinNormalPatternsY = BinPacking2D.DetermineNormalPatterns(itemSubset, bin.Dx - itemI.Dx, bin.Dy - itemI.Dy, i*bin.Dx)
+                fixedBinNormalPatternsX, fixedBinNormalPatternsY = PlacementPointGenerator.DetermineNormalPatterns(itemSubset, bin.Dx - itemI.Dx, bin.Dy - itemI.Dy, i*bin.Dx)
                 itemBinNormalPatternsX[i].extend(fixedBinNormalPatternsX)
 
                 continue
@@ -120,7 +120,7 @@ class BinPackingSolverCP():
                     
                     itemSubset.append(itemJ)
 
-                binSpecificNormalPatternsX, binSpecificNormalPatternsY = BinPacking2D.DetermineNormalPatterns(itemSubset, bin.Dx - itemI.Dx, bin.Dy - itemI.Dy, b*bin.Dx)
+                binSpecificNormalPatternsX, binSpecificNormalPatternsY = PlacementPointGenerator.DetermineNormalPatterns(itemSubset, bin.Dx - itemI.Dx, bin.Dy - itemI.Dy, b*bin.Dx)
                 itemBinNormalPatternsX[i].extend(binSpecificNormalPatternsX)
 
         return itemSpecificNormalPatternsX, itemSpecificNormalPatternsY, itemBinNormalPatternsX

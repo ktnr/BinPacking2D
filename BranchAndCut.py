@@ -7,9 +7,6 @@ import math
 import numpy
 import json
 
-from ortools.sat.python import cp_model
-from ortools.sat.python.cp_model import Domain
-
 import networkx as nx
 from networkx.algorithms.approximation import clique
 
@@ -17,18 +14,10 @@ from BinPackingData import *
 from BinPacking import *
 from Model import *
 from OrthogonalPacking import *
-from PlacementPoints import PlacementPointGenerator
+from PlacementPoints import *
 
 """ Datasets at https://github.com/Oscar-Oliveira/OR-Datasets/tree/master/Cutting-and-Packing/2D/Datasets """
 import time
-
-from enum import IntEnum
-
-class PlacementPointStrategy(IntEnum):
-    UnitDiscretization = 0
-    NormalPatterns = 1
-    MeetInTheMiddlePatterns = 2
-    MinimalMeetInTheMiddlePatterns = 3
 
 class BinPackingCallback:
     def __init__(self):
