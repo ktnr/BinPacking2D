@@ -754,7 +754,7 @@ class BinPackingBranchAndCutSolver:
         self.Runtime = model.Runtime
         self.SolverType = "B&C"
 
-    def DetermineStartSolution(self, items, H, W, lowerBoundBin, m):
+    def DetermineStartSolution(self, items, H, W, lowerBoundBin):
         solverCP = BinPackingSolverCP()
         
         h = []
@@ -763,7 +763,7 @@ class BinPackingBranchAndCutSolver:
             h.append(item.Dy)
             w.append(item.Dx)
 
-        rectangles = solverCP.SolveOneBigBinModel(items, h, w, H, W, lowerBoundBin, m, 30, False, self.IncompatibleItems)
+        rectangles = solverCP.SolveOneBigBinModel(items, h, w, H, W, lowerBoundBin, len(items), 30, False, self.IncompatibleItems)
 
         if solverCP.LB == solverCP.UB:
             return True, solverCP.LB, "CP", rectangles
@@ -772,7 +772,7 @@ class BinPackingBranchAndCutSolver:
 
         return False, solverCP.LB, "B&C", rectangles
 
-    def RemoveLargeItems(self, items, H, W, m):
+    def RemoveLargeItems(self, items, H, W):
         filteredItemIndices = []
         for i, item in enumerate(items):
             dy = item.Dy
@@ -818,9 +818,9 @@ class BinPackingBranchAndCutSolver:
                     self.IncompatibleItems.add(frozenset((i, j)))
                     continue
 
-    def Preprocess(self, items, H, W, m):
+    def Preprocess(self, items, H, W):
         items = sorted(items, reverse=True) # TODO: build conflict graph and compute maximal clique
-        items, m = self.RemoveLargeItems(items, H, W, m)
+        items, newNumberOfItems = self.RemoveLargeItems(items, H, W)
 
         self.DetermineConflicts(items, H, W)
 
@@ -850,17 +850,13 @@ class BinPackingBranchAndCutSolver:
         self.IncompatibleItems.clear()
         self.DetermineConflicts(items, H, W)
 
-        return items, m
+        return items, newNumberOfItems
 
-    def Run(self, h, w, H, W, m):   
-        items = []
-        for i in range(len(h)):
-            items.append(Item(i, w[i], h[i]))
-
-        items, m = self.Preprocess(items, H, W, m)
+    def Run(self, items, H, W):   
+        items, numberOfItems = self.Preprocess(items, H, W)
 
         self.BinPacking.AddItems(items)
-        self.BinPacking.AddBins([W] * m, [H] * m)
+        self.BinPacking.AddBins([W] * numberOfItems, [H] * numberOfItems)
 
         self.BinPacking.CreateVariables()
         self.BinPacking.CreateConstraints()
@@ -869,7 +865,7 @@ class BinPackingBranchAndCutSolver:
         
         #self.BinPacking.Model.write('BPP.lp')
 
-        isOptimalCP, lbCP, solverType, rectangles = self.DetermineStartSolution(items, H, W, self.BinPacking.LowerBoundBin, m)
+        isOptimalCP, lbCP, solverType, rectangles = self.DetermineStartSolution(items, H, W, self.BinPacking.LowerBoundBin)
 
         if isOptimalCP:
             self.IsOptimal = 1

@@ -4,6 +4,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
+from Model import Item, Bin
+
 """ from https://yetanothermathprogrammingconsultant.blogspot.com/2021/02/2d-bin-packing-with-google-or-tools-cp.html """
 def ReadExampleData():
     data = {'bin':{'h':60,'w':40},
@@ -43,18 +45,18 @@ def ReadBenchmarkData(id):
     W = int(bin['Length'])
     H = int(bin['Height'])
 
-    w = []
-    h = []
-
+    newItems = []
+    itemId = 0
     items = obj['Items']
     for item in items:
         for _ in range(0, int(item['Demand'])):
-            w.append(int(item['Length']))
-            h.append(int(item['Height']))
+            width = int(item['Length'])
+            height = int(item['Height'])
 
-    m = int(len(h))
+            newItems.append(Item(itemId, width, height))
+            itemId += 1
 
-    return h, w, H, W, m
+    return newItems, H, W
 
 def ExtractDataForPlot(x, y, w, h, W, H):
     rectangles = []

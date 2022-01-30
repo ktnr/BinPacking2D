@@ -13,13 +13,13 @@ def main():
     #hardInstances = [226, 232, 242, 242, 244, 245, 247, 248, 249, 261, 292, 313, 314, 332, 173, 187, 188, 191, 197, 142, 143, 145, 146, 149]
     #mediumInstance = [149, 174]
 
-    for instance in range(21, 501):
+    for instance in range(1, 501):
     #for instance in hardInstances:
         currentInstanceId = instance
-        h, w, H, W, m = ReadBenchmarkData(instance)
+        items, H, W = ReadBenchmarkData(instance)
         
         solver = BinPackingBranchAndCutSolver(instance)
-        rectangles = solver.Run(h, w, H, W, m)
+        rectangles = solver.Run(items, H, W)
 
         solver.RetrieveSolutionStatistics()
 
@@ -32,9 +32,9 @@ def main():
         #PlotSolution(upperBoundMIP * W, H, rectangles)
 
         if isOptimalMIP:
-            print(f'Instance {instance}: Optimal solution = {int(bestBoundMIP)} found by {solverType} (#items = {len(h)})')
+            print(f'Instance {instance}: Optimal solution = {int(bestBoundMIP)} found by {solverType} (#items = {len(items)})')
         else:
-            print(f'Instance {instance}: No optimal solution found, [lb, ub] = [{bestBoundMIP}, {upperBoundMIP}] (#items = {len(h)})')
+            print(f'Instance {instance}: No optimal solution found, [lb, ub] = [{bestBoundMIP}, {upperBoundMIP}] (#items = {len(items)})')
     
         solutions[instance] = {'LB': bestBoundMIP, 'UB': upperBoundMIP, 'Solver': solverType}
 
