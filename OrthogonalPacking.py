@@ -2,6 +2,10 @@ from ortools.sat.python import cp_model
 from ortools.sat.python.cp_model import Domain
 
 from PlacementPoints import *
+from SymmetryBreaking import *
+from HelperIO import Converter
+
+import math
 
 class Knapsack2D:
     def __init__(self):
@@ -127,6 +131,13 @@ class OrthogonalPacking2D:
     def CreateVariables(self, placementPointStrategy):
         binDx = self.Bin.Dx
         binDy = self.Bin.Dy
+
+        reducedItemIndex = SymmetryBreaking.DetermineMaximumItemIndexDx(self.Items)
+
+        reducedItem = self.Items[reducedItemIndex]
+        reducedDomainThresholdX = SymmetryBreaking.ReducedDomainX(binDx, reducedItem)
+        reducedDomainThresholdY = SymmetryBreaking.ReducedDomainY(binDy, reducedItem)
+
         # Consider modifying domains according to Cote, Iori (2018): The meet-in-the-middle principle for cutting and packing problems.
         for i, item in enumerate(self.Items):
         
@@ -146,7 +157,11 @@ class OrthogonalPacking2D:
             else:
                 raise ValueError('UnkownPlacementPointStrategy')
 
-            placementPointsStartX = [p for p in placementPointsX if p + item.Dx <= binDx] # unnecessary, is satisfied by construction
+            if i == reducedItemIndex:
+                placementPointsStartX = [p for p in placementPointsX if p + item.Dx <= binDx and p <= reducedDomainThresholdX]
+            else:
+                placementPointsStartX = [p for p in placementPointsX if p + item.Dx <= binDx] # unnecessary, is satisfied by construction
+
             placementPointsEndX = [p + item.Dx for p in placementPointsStartX]
             x1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsStartX), f'x1.{i}')
             x2 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsEndX), f'x2.{i}')
@@ -154,7 +169,11 @@ class OrthogonalPacking2D:
             self.StartX.append(x1)
             self.EndX.append(x2)
 
-            placementPointsStartY = [p for p in placementPointsY if p + item.Dy <= binDy]  # is satisfied by construction
+            if i == reducedItemIndex:
+                placementPointsStartY = [p for p in placementPointsY if p + item.Dy <= binDy and p <= reducedDomainThresholdY]
+            else:
+                placementPointsStartY = [p for p in placementPointsY if p + item.Dy <= binDy]  # is satisfied by construction
+
             placementPointsEndY = [p + item.Dy for p in placementPointsStartY]
             y1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsStartY), f'y1.{i}')
             y2 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsEndY), f'y2.{i}')
@@ -179,7 +198,7 @@ class OrthogonalPacking2D:
 
         self.Model.AddNoOverlap2D(self.IntervalX, self.IntervalY)
 
-    def Solve(self):
+    def Solve(self, instanceId):
         if len(self.Items) == 1:
             if self.Items[0].Dx <= self.Bin.Dx and self.Items[0].Dy <= self.Bin.Dy:
                 return True
@@ -189,7 +208,7 @@ class OrthogonalPacking2D:
         self.Solver = cp_model.CpSolver()
         self.Solver.parameters.log_search_progress = False 
         self.Solver.parameters.num_search_workers = 8
-        #self.Solver.parameters.max_time_in_seconds = 10
+        #self.Solver.parameters.max_time_in_seconds = 300
         #solver.parameters.cp_model_presolve = False
 
         """
@@ -207,6 +226,8 @@ class OrthogonalPacking2D:
         elif status == cp_model.MODEL_INVALID:
             raise ValueError("Model invalid")
         elif status == cp_model.UNKNOWN:
+            #Converter.ConvertFromSubproblem(self.Items, self.Bin, self.Solver.parameters.max_time_in_seconds, instanceId)
+            #return False
             raise ValueError("Unkown status type")
         else:
             raise ValueError("Invalid status type")

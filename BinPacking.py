@@ -12,6 +12,8 @@ from PlacementPoints import *
 
 import matplotlib
 
+from SymmetryBreaking import SymmetryBreaking
+
 class BinPackingSolverCP():
     def __init__(self):
         self.IsOptimal = False
@@ -198,14 +200,18 @@ class BinPackingSolverCP():
 
                 if fixItemToBin[i]:
                     # do domain reduction
-                    d = model.NewIntVar(i*W, (i + 1)*W - item.Dx, f'xb1.{i}')
-                    e = model.NewIntVar(i*W + item.Dx, (i + 1)*W, f'xb2.{i}')
+                    reducedDomainX = SymmetryBreaking.ReducedDomainX(W, item)
+                    d = model.NewIntVar(i*W, i*W + reducedDomainX, f'xb1.{i}')
+                    e = model.NewIntVar(i*W + item.Dx, i*W + reducedDomainX + item.Dx, f'xb2.{i}')
+                    #d = model.NewIntVar(i*W, (i + 1)*W - item.Dx, f'xb1.{i}')
+                    #e = model.NewIntVar(i*W + item.Dx, (i + 1)*W, f'xb2.{i}')
 
                     xb1.append(d)
                     xb2.append(e)
-
-                    yStart = model.NewIntVar(0, 0,f'y1.{i}')
-                    yEnd = model.NewIntVar(item.Dy, item.Dy,f'y2.{i}')
+                    
+                    reducedDomainY = SymmetryBreaking.ReducedDomainY(H, item)
+                    yStart = model.NewIntVar(0, reducedDomainY,f'y1.{i}')
+                    yEnd = model.NewIntVar(item.Dy, reducedDomainY + item.Dy,f'y2.{i}')
 
                     y1.append(yStart)
                     y2.append(yEnd)

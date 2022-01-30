@@ -1,5 +1,7 @@
 #!/usr/bin/env python3.7
 
+import os
+
 import gurobipy as gp
 from gurobipy import GRB
 
@@ -189,7 +191,7 @@ class BinPackingCallback:
             binPacking2D.CreateVariables(model._PlacementPointStrategy)
             binPacking2D.CreateConstraints()
 
-            isFeasible = binPacking2D.Solve()
+            isFeasible = binPacking2D.Solve(model._InstanceId)
 
             t2 = time.time()
 
@@ -276,7 +278,7 @@ class BinPackingCallback:
             binPacking2D.CreateVariables(model._PlacementPointStrategy)
             binPacking2D.CreateConstraints()
 
-            isFeasible = binPacking2D.Solve()
+            isFeasible = binPacking2D.Solve(model._InstanceId)
 
             t2 = time.time()
 
@@ -329,6 +331,8 @@ class BinPackingMip:
         self.LowerBoundBin = 0
         self.FixItemToBin = []
         self.IncompatibleItems = set()
+        
+        InstanceId = -1
 
     def AddItems(self, items):
         self.Items = items
@@ -443,6 +447,8 @@ class BinPackingMip:
         self.Model._EnablePreprocessLifting = False
         self.Model._PlacementPointStrategy = PlacementPointStrategy.NormalPatterns
 
+        self.Model._InstanceId = self.InstanceId
+
     def DeterminePositions(self, itemIndicesArray, itemsInBinArray):
         rectanglesArray = []
         for b, itemIndices in enumerate(itemIndicesArray):
@@ -461,7 +467,7 @@ class BinPackingMip:
             binPacking2D.CreateVariables(self.Model._PlacementPointStrategy)
             binPacking2D.CreateConstraints()
 
-            isFeasible = binPacking2D.Solve()
+            isFeasible = binPacking2D.Solve(self.InstanceId)
 
             if not isFeasible:
                 raise ValueError('Packing must not be infeasible during solution extraction.')
@@ -725,8 +731,9 @@ class BinPackingMip:
         return rectangles
 
 class BinPackingBranchAndCutSolver:
-    def __init__(self):
+    def __init__(self, instanceId):
         self.BinPacking = BinPackingMip()
+        self.BinPacking.InstanceId = instanceId
 
         self.RemovedItems = []
         self.IncompatibleItems = set()
@@ -880,11 +887,7 @@ class BinPackingBranchAndCutSolver:
 
         return rectangles
 
-#h, w, H, W, m = ReadBenchmarkData(10)
-#Run(h, w, H, W, m)
-
 def main():
-    #h, w, H, W, m = ReadExampleData()
     solutions = {}
     # Single bin 2D-BPP CP model takes ages to prove feasibility/infeasibility on instances: 173, 262, 292, 297, 298, 317
     # Meet in the middle produces erroneous 1D KP instances for instances 11
@@ -893,11 +896,13 @@ def main():
     # Negative lifting coefficient: 120, 123, 
     #hardInstances = [226, 232, 242, 242, 244, 245, 247, 248, 249, 261, 292, 313, 314, 332, 173, 187, 188, 191, 197, 142, 143, 145, 146, 149]
     #mediumInstance = [149, 174]
-    for instance in range(1, 174):
+
+    for instance in range(20, 501):
     #for instance in hardInstances:
+        currentInstanceId = instance
         h, w, H, W, m = ReadBenchmarkData(instance)
         
-        solver = BinPackingBranchAndCutSolver()
+        solver = BinPackingBranchAndCutSolver(instance)
         rectangles = solver.Run(h, w, H, W, m)
 
         solver.RetrieveSolutionStatistics()
@@ -913,14 +918,11 @@ def main():
         if isOptimalMIP:
             print(f'Instance {instance}: Optimal solution = {int(bestBoundMIP)} found by {solverType} (#items = {len(h)})')
         else:
-            #raise ValueError(f'Instance {instance}: No optimal solution found, [lb, ub] = [{bestBoundMIP}, {upperBoundMIP}]')
             print(f'Instance {instance}: No optimal solution found, [lb, ub] = [{bestBoundMIP}, {upperBoundMIP}] (#items = {len(h)})')
     
         solutions[instance] = {'LB': bestBoundMIP, 'UB': upperBoundMIP, 'Solver': solverType}
 
     solutionsJson = json.dumps(solutions, indent = 4)
-    
-    # Writing to sample.json
     with open("Solutions.json", "w") as outfile:
         outfile.write(solutionsJson)
 
