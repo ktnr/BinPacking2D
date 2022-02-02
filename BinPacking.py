@@ -14,8 +14,17 @@ import matplotlib
 
 from SymmetryBreaking import SymmetryBreaking
 
-class BinPackingSolverCP():
-    def __init__(self):
+class BinPackingSolverCP:
+    def __init__(self, items, binDy, binDx, lowerBoundBins, upperBoundBins, timeLimit = 3600, enableLogging = True, incompatibleItems = None):
+        self.items = items
+        self.binDx = binDx
+        self.binDy = binDy
+        self.lowerBoundBins = lowerBoundBins
+        self.upperBoundBins = upperBoundBins
+        self.timeLimit = timeLimit
+        self.enableLogging = enableLogging
+        self.incompatibleItems = incompatibleItems
+        
         self.IsOptimal = False
         self.LB = -1
         self.UB = -1
@@ -24,8 +33,30 @@ class BinPackingSolverCP():
 
         self.ItemBinAssignments = []
     
-    def Solve(modelType = 'OneBigBin'):
-        pass
+    def Solve(self, modelType = 'OneBigBin'):
+        if modelType == 'OneBigBin':
+            model = OneBigBinModel()
+        else:
+            raise ValueError("Invalid bin packing model type.")
+        
+        rectangles = model.Solve(self.items, self.binDy, self.binDx, self.lowerBoundBins, self.upperBoundBins, self.timeLimit, self.enableLogging, self.incompatibleItems)
+       
+        self.IsOptimal = model.IsOptimal
+        self.LB = model.LB
+        self.UB = model.UB
+        self.ItemBinAssignments = model.ItemBinAssignments
+
+        return rectangles
+
+class OneBigBinModel:
+    def __init__(self):
+        self.IsOptimal = False
+        self.LB = -1
+        self.UB = -1
+
+        self.EnableNormalPatterns = False
+
+        self.ItemBinAssignments = []
 
     def FixIncompatibleItems(self, incompatibleItems, numberOfItems):
         # This is a similar logic as in section 6.2 in Cote, Haouari, Iori (2019). 
@@ -145,7 +176,7 @@ class BinPackingSolverCP():
     https://yetanothermathprogrammingconsultant.blogspot.com/2021/02/2d-bin-packing-with-google-or-tools-cp.html 
     https://yetanothermathprogrammingconsultant.blogspot.com/2021/02/2d-bin-packing.html 
     """
-    def SolveOneBigBinModel(self, items, binDy, binDx, lowerBoundBin, m, timeLimit = 3600, enableLogging = True, incompatibleItems = None):
+    def Solve(self, items, binDy, binDx, lowerBoundBins, upperBoundBins, timeLimit = 3600, enableLogging = True, incompatibleItems = None):
 
         n = len(items)
 
@@ -154,11 +185,11 @@ class BinPackingSolverCP():
         #preprocessing
         fixItemToBin = self.FixIncompatibleItems(incompatibleItems, n)
 
-        binDomains = self.CreateReducedBinDomains(incompatibleItems, n, m, fixItemToBin)
+        binDomains = self.CreateReducedBinDomains(incompatibleItems, n, upperBoundBins, fixItemToBin)
 
         itemNormalPatternsX, itemNormalPatternsY, globalNormalPatternsX = [], [], []
         if self.EnableNormalPatterns:
-            itemNormalPatternsX, itemNormalPatternsY, globalNormalPatternsX = self.CreateBinDependentNormalPatterns(incompatibleItems, fixItemToBin, items, m, binDx, binDy)
+            itemNormalPatternsX, itemNormalPatternsY, globalNormalPatternsX = self.CreateBinDependentNormalPatterns(incompatibleItems, fixItemToBin, items, upperBoundBins, binDx, binDy)
         
         # variables
 
@@ -219,7 +250,7 @@ class BinPackingSolverCP():
                     endVariablesY.append(yEnd)
                 else:
                     # TODO: domain reduction for each bin where item i is the biggest placeable item
-                    boundedM = i if i < m else m - 1
+                    boundedM = i if i < upperBoundBins else upperBoundBins - 1
 
                     # TODO: apply bin domains to these variables
                     globalStartX = model.NewIntVar(0, (boundedM + 1) * binDx - item.Dx, f'xb1.{i}')
@@ -247,7 +278,7 @@ class BinPackingSolverCP():
         lowerBound = lowerBoundAreaBin
 
         # objective
-        z = model.NewIntVar(lowerBound - 1, m - 1,'z')
+        z = model.NewIntVar(lowerBound - 1, upperBoundBins - 1,'z')
 
         # constraints
         for i, item in enumerate(items):
@@ -304,10 +335,13 @@ class BinPackingSolverCP():
 
 def main():
     #h, w, H, W, m = ReadExampleData()
-    items, H, W = ReadBenchmarkData(88)
+    items, H, W = ReadBenchmarkData(9)
 
-    solver = BinPackingSolverCP()
-    rectangles = solver.SolveOneBigBinModel(items, H, W, 1, len(items), 30)
+    solver = BinPackingSolverCP(items, H, W, 1, len(items), 30)
+    rectangles = solver.Solve('OneBigBin')
+    
+    #solver = OneBigBinModel()
+    #rectangles = solver.SolveOneBigBinModel(items, H, W, 1, len(items), 30)
 
     objBoundUB = solver.UB
 

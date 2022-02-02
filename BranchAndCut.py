@@ -752,15 +752,9 @@ class BinPackingBranchAndCutSolver:
         self.SolverType = "B&C"
 
     def DetermineStartSolution(self, items, H, W, lowerBoundBin):
-        solverCP = BinPackingSolverCP()
         
-        h = []
-        w = []
-        for i, item in enumerate(items):
-            h.append(item.Dy)
-            w.append(item.Dx)
-
-        rectangles = solverCP.SolveOneBigBinModel(items, H, W, lowerBoundBin, len(items), 60, False, self.IncompatibleItems)
+        solverCP = BinPackingSolverCP(items, H, W, lowerBoundBin, len(items), 60, False, self.IncompatibleItems)
+        rectangles = solverCP.Solve('OneBigBin')
 
         if solverCP.LB == solverCP.UB:
             return True, solverCP.LB, "CP", rectangles
