@@ -63,6 +63,6 @@ class Converter:
         newJsonDict["Container"] = newContainer
         newJsonDict["ItemTypes"] = newItems
 
-        with open(os.path.join("data", "subproblems", name + ".json"), "w") as fp:
+        with open(os.path.join("data", "2D-OPP-subproblems", name + ".json"), "w") as fp:
             print(f"Instance {name} saved")
             json.dump(newJsonDict, fp, indent=4, default=lambda x: x.__dict__)
