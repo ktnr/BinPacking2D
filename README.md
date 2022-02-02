@@ -19,14 +19,14 @@ is added to exclude the infeasible assignment of items <img src="https://render.
 - Improvements to the decomposition approach include: cut strengthening by finding reduced infeasible sets (decrease lhs and rhs of infeasibility cuts), cut lifting by finding valid item displacements for infeasible sets (increasing lhs while keeping rhs constant)
 
 ## Usage
-The entry point is the `main()` method of `BinPacking.py`. Reading, writing and displaying data is handled by `BinPackingData.py`. By default the benchmark sets of [J. O. Berkey and P. Y. Wang, “Two-Dimensional Finite Bin-Packing Algorithms,” J. Oper. Res. Soc., vol. 38, no. 5, p. 423, May 1987 and Martello and D. Vigo, “Exact Solution of the Two-Dimensional Finite Bin Packing Problem,” Manage. Sci., vol. 44, no. April 2015, pp. 388–399, 1998](https://github.com/Oscar-Oliveira/OR-Datasets/tree/master/Cutting-and-Packing/2D/Datasets/CLASS) are included.
+The entry point is the `main()` method of `main.py`. Reading, writing and displaying data is handled by `BinPackingData.py`. By default the benchmark sets of [J. O. Berkey and P. Y. Wang, “Two-Dimensional Finite Bin-Packing Algorithms,” J. Oper. Res. Soc., vol. 38, no. 5, p. 423, May 1987 and Martello and D. Vigo, “Exact Solution of the Two-Dimensional Finite Bin Packing Problem,” Manage. Sci., vol. 44, no. April 2015, pp. 388–399, 1998](https://github.com/Oscar-Oliveira/OR-Datasets/tree/master/Cutting-and-Packing/2D/Datasets/CLASS) are included.
 
 The high level algorithm is implemented in the `BinPackingBranchAndCutSolver` class.
 ```
-itemHeights, itemWidths, binHeight, binWidth, numberOfItems = ReadBenchmarkData(instance)
+items, binHeight, binWidth = ReadBenchmarkData(instance)
         
 solver = BinPackingBranchAndCutSolver()
-rectangles = solver.Run(itemHeights, itemWidths, binHeight, bindWidth, numberOfItems)
+rectangles = solver.Run(items, binHeight, bindWidth)
 ```
 
 Algorithmic features can be parametrized.
@@ -37,7 +37,7 @@ def SetCallbackData(self):
     self.Model._InfeasibleSuproblemCutThreshold = 1
 
     self.Model._EnablePreprocessLifting = False
-    self.Model._PlacementPointStrategy = PlacementPointStrategy.MinimalMeetInTheMiddlePatterns
+    self.Model._PlacementPointStrategy = PlacementPointStrategy.NormalPatterns
 ```
 
 ## Results
