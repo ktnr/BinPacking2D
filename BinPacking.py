@@ -242,7 +242,8 @@ class BinPackingSolverCP():
         self.AddIncompatibilityCuts(incompatibleItems, fixItemToBin, model, b)
 
         lowerBoundAreaBin = math.ceil(float(totalArea) / float(H * W))
-        lowerBound = min(lowerBoundAreaBin, lowerBoundBin)
+        #lowerBound = min(lowerBoundAreaBin, lowerBoundBin)
+        lowerBound = lowerBoundAreaBin
 
         # objective
         z = model.NewIntVar(lowerBound - 1, m - 1,'z')
@@ -278,6 +279,8 @@ class BinPackingSolverCP():
         #print(f"Objective:{solver.ResponseStats()}")
         
         status = solver.StatusName()
+        if status == 'UNKNOWN':
+            raise ValueError("Start solution could not be determined (CP status == UNKNOWN)")
 
         self.IsOptimal = 1 if solver.StatusName() == 'OPTIMAL' else 0
         self.LB = solver.BestObjectiveBound()
@@ -294,14 +297,20 @@ class BinPackingSolverCP():
 
 def main():
     #h, w, H, W, m = ReadExampleData()
-    h, w, H, W, m = ReadBenchmarkData(10)
+    items, H, W = ReadBenchmarkData(92)
 
-    items = []
-    for i in range(len(h)):
-        items.append(Item(i, w[i], h[i]))
+    w = []
+    h = []
+    for i, item in enumerate(items):
+        w.append(item.Dx)
+        h.append(item.Dy)
+    
+    # worse CP performance when passing lower bound
+    totalArea = numpy.dot(w,h)
+    lowerBoundBinArea = math.ceil(float(totalArea) / float(W * H)) # homogeneous bins!
 
     solver = BinPackingSolverCP()
-    rectangles = solver.SolveOneBigBinModel(items, h, w, H, W, 0, m)
+    rectangles = solver.SolveOneBigBinModel(items, h, w, H, W, 1, len(items), 30)
 
     objBoundUB = solver.UB
 

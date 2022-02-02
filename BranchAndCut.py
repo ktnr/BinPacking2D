@@ -325,7 +325,7 @@ class BinPackingMip:
 
         self.Enable2D = enable2D
 
-        self.LowerBoundBin = 0
+        self.LowerBoundBin = 1
         self.FixItemToBin = []
         self.IncompatibleItems = set()
         
@@ -763,7 +763,7 @@ class BinPackingBranchAndCutSolver:
             h.append(item.Dy)
             w.append(item.Dx)
 
-        rectangles = solverCP.SolveOneBigBinModel(items, h, w, H, W, lowerBoundBin, len(items), 30, False, self.IncompatibleItems)
+        rectangles = solverCP.SolveOneBigBinModel(items, h, w, H, W, lowerBoundBin, len(items), 300, False, self.IncompatibleItems)
 
         if solverCP.LB == solverCP.UB:
             return True, solverCP.LB, "CP", rectangles

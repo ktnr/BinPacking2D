@@ -208,6 +208,9 @@ class OrthogonalPacking2D:
         self.Solver = cp_model.CpSolver()
         self.Solver.parameters.log_search_progress = False 
         self.Solver.parameters.num_search_workers = 8
+        #self.Solver.parameters.use_cumulative_in_no_overlap_2d = True
+        #self.Solver.parameters.use_disjunctive_constraint_in_cumulative_constraint = True
+        #self.Solver.parameters.use_timetable_edge_finding_in_cumulative_constraint = True
         #self.Solver.parameters.max_time_in_seconds = 300
         #solver.parameters.cp_model_presolve = False
 
