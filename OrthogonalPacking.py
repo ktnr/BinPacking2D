@@ -162,41 +162,45 @@ class OrthogonalPacking2D:
             else:
                 placementPointsStartX = [p for p in placementPointsX if p + item.Dx <= binDx] # unnecessary, is satisfied by construction
 
-            placementPointsEndX = [p + item.Dx for p in placementPointsStartX]
             x1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsStartX), f'x1.{i}')
-            x2 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsEndX), f'x2.{i}')
+
+            #placementPointsEndX = [p + item.Dx for p in placementPointsStartX]
+            #x2 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsEndX), f'x2.{i}')
 
             self.StartX.append(x1)
-            self.EndX.append(x2)
+            #self.EndX.append(x2)
 
             if i == reducedItemIndex:
                 placementPointsStartY = [p for p in placementPointsY if p + item.Dy <= binDy and p <= reducedDomainThresholdY]
             else:
                 placementPointsStartY = [p for p in placementPointsY if p + item.Dy <= binDy]  # is satisfied by construction
 
-            placementPointsEndY = [p + item.Dy for p in placementPointsStartY]
             y1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsStartY), f'y1.{i}')
-            y2 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsEndY), f'y2.{i}')
+            #placementPointsEndY = [p + item.Dy for p in placementPointsStartY]
+            #y2 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsEndY), f'y2.{i}')
 
             self.StartY.append(y1)
-            self.EndY.append(y2)
+            #self.EndY.append(y2)
 
-            intervalX = self.Model.NewIntervalVar(x1, item.Dx, x2, f'xI{i}')
-            intervalY = self.Model.NewIntervalVar(y1, item.Dy, y2, f'yI{i}')
+            intervalX = self.Model.NewFixedSizeIntervalVar(x1, item.Dx, f'xI{i}')
+            intervalY = self.Model.NewFixedSizeIntervalVar(y1, item.Dy, f'yI{i}')
 
             self.IntervalX.append(intervalX)
             self.IntervalY.append(intervalY)
 
     def CreateConstraints(self):
-        """for i, itemI in enumerate(self.Items):
-            for j, itemJ in enumerate(self.Items):
-                if i == j:
-                    continue
+        self.CreateNoOverlapConstraints()
+        self.CreateCumulativeConstraints()
 
-                self.Model.AddNoOverlap2D([self.IntervalX[i], self.IntervalX[j]],[self.IntervalY[i], self.IntervalY[j]])
-                """
-
+    def CreateNoOverlapConstraints(self):
         self.Model.AddNoOverlap2D(self.IntervalX, self.IntervalY)
+
+    def CreateCumulativeConstraints(self):
+        demandsX = [item.Dx for item in self.Items]
+        demandsY = [item.Dy for item in self.Items]
+
+        self.Model.AddCumulative(self.IntervalY, demandsX, self.Bin.Dx)
+        self.Model.AddCumulative(self.IntervalX, demandsY, self.Bin.Dy)
 
     def Solve(self, instanceId):
         if len(self.Items) == 1:

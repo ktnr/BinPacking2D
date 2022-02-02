@@ -24,6 +24,9 @@ class BinPackingSolverCP():
 
         self.ItemBinAssignments = []
     
+    def Solve(modelType = 'OneBigBin'):
+        pass
+
     def FixIncompatibleItems(self, incompatibleItems, numberOfItems):
         # This is a similar logic as in section 6.2 in Cote, Haouari, Iori (2019). 
         fixItemToBin = [False] * numberOfItems
@@ -142,7 +145,7 @@ class BinPackingSolverCP():
     https://yetanothermathprogrammingconsultant.blogspot.com/2021/02/2d-bin-packing-with-google-or-tools-cp.html 
     https://yetanothermathprogrammingconsultant.blogspot.com/2021/02/2d-bin-packing.html 
     """
-    def SolveOneBigBinModel(self, items, h, w, H, W, lowerBoundBin, m, timeLimit = 3600, enableLogging = True, incompatibleItems = None):
+    def SolveOneBigBinModel(self, items, binDy, binDx, lowerBoundBin, m, timeLimit = 3600, enableLogging = True, incompatibleItems = None):
 
         n = len(items)
 
@@ -155,93 +158,91 @@ class BinPackingSolverCP():
 
         itemNormalPatternsX, itemNormalPatternsY, globalNormalPatternsX = [], [], []
         if self.EnableNormalPatterns:
-            itemNormalPatternsX, itemNormalPatternsY, globalNormalPatternsX = self.CreateBinDependentNormalPatterns(incompatibleItems, fixItemToBin, items, m, W, H)
-
-
+            itemNormalPatternsX, itemNormalPatternsY, globalNormalPatternsX = self.CreateBinDependentNormalPatterns(incompatibleItems, fixItemToBin, items, m, binDx, binDy)
+        
         # variables
 
-        x = [] 
-        b = [] # bin numbers
-        xb1 = []
-        xb2 = []
-        y1 = []
-        y2 = []
+        startVariablesLocalX = [] 
+        placedBinVariables = [] # bin numbers
+        startVariablesGlobalX = []
+        endVariablesGlobalX = []
+        startVariablesY = []
+        endVariablesY = []
         totalArea = 0.0
         for i, item in enumerate(items):
 
             totalArea += item.Dx * item.Dy
 
-            f = model.NewIntVarFromDomain(Domain.FromValues(binDomains[i]), f'b{i}')
-            b.append(f)
+            itemFeasibleBins = model.NewIntVarFromDomain(Domain.FromValues(binDomains[i]), f'b{i}')
+            placedBinVariables.append(itemFeasibleBins)
 
             if self.EnableNormalPatterns:
-                filteredStartLocalX = [p for p in itemNormalPatternsX[i] if (p % W) + item.Dx <= W]
+                filteredStartLocalX = [p for p in itemNormalPatternsX[i] if (p % binDx) + item.Dx <= binDx]
                 xStart = model.NewIntVarFromDomain(Domain.FromValues(filteredStartLocalX),f'x{i}')
-                x.append(xStart)
+                startVariablesLocalX.append(xStart)
 
-                filteredStartX = [p for p in globalNormalPatternsX[i] if (p % W) + item.Dx <= W]
+                filteredStartX = [p for p in globalNormalPatternsX[i] if (p % binDx) + item.Dx <= binDx]
                 filteredEndX = [p + item.Dx for p in filteredStartX]
-                d = model.NewIntVarFromDomain(Domain.FromValues(filteredStartX), f'xb1.{i}')
-                e = model.NewIntVarFromDomain(Domain.FromValues(filteredEndX), f'xb2.{i}')
+                globalStartX = model.NewIntVarFromDomain(Domain.FromValues(filteredStartX), f'xb1.{i}')
+                globalEndX = model.NewIntVarFromDomain(Domain.FromValues(filteredEndX), f'xb2.{i}')
 
-                xb1.append(d)
-                xb2.append(e)
+                startVariablesGlobalX.append(globalStartX)
+                endVariablesGlobalX.append(globalEndX)
 
-                filteredStartY = [p for p in itemNormalPatternsY[i] if p + item.Dy <= H]
+                filteredStartY = [p for p in itemNormalPatternsY[i] if p + item.Dy <= binDy]
                 filteredEndY = [p + item.Dy for p in filteredStartY]
                 yStart = model.NewIntVarFromDomain(Domain.FromValues(filteredStartY),f'y1.{i}')
                 yEnd = model.NewIntVarFromDomain(Domain.FromValues(filteredEndY),f'y2.{i}')
 
-                y1.append(yStart)
-                y2.append(yEnd)
+                startVariablesY.append(yStart)
+                endVariablesY.append(yEnd)
             else:
-                xStart = model.NewIntVar(0, W - item.Dx, f'x{i}')
-                x.append(xStart)
+                xStart = model.NewIntVar(0, binDx - item.Dx, f'x{i}')
+                startVariablesLocalX.append(xStart)
 
                 if fixItemToBin[i]:
                     # do domain reduction
-                    reducedDomainX = SymmetryBreaking.ReducedDomainX(W, item)
-                    d = model.NewIntVar(i*W, i*W + reducedDomainX, f'xb1.{i}')
-                    e = model.NewIntVar(i*W + item.Dx, i*W + reducedDomainX + item.Dx, f'xb2.{i}')
+                    reducedDomainX = SymmetryBreaking.ReducedDomainX(binDx, item)
+                    globalStartX = model.NewIntVar(i*binDx, i*binDx + reducedDomainX, f'xb1.{i}')
+                    globalEndX = model.NewIntVar(i*binDx + item.Dx, i*binDx + reducedDomainX + item.Dx, f'xb2.{i}')
                     #d = model.NewIntVar(i*W, (i + 1)*W - item.Dx, f'xb1.{i}')
                     #e = model.NewIntVar(i*W + item.Dx, (i + 1)*W, f'xb2.{i}')
 
-                    xb1.append(d)
-                    xb2.append(e)
+                    startVariablesGlobalX.append(globalStartX)
+                    endVariablesGlobalX.append(globalEndX)
                     
-                    reducedDomainY = SymmetryBreaking.ReducedDomainY(H, item)
+                    reducedDomainY = SymmetryBreaking.ReducedDomainY(binDy, item)
                     yStart = model.NewIntVar(0, reducedDomainY,f'y1.{i}')
                     yEnd = model.NewIntVar(item.Dy, reducedDomainY + item.Dy,f'y2.{i}')
 
-                    y1.append(yStart)
-                    y2.append(yEnd)
+                    startVariablesY.append(yStart)
+                    endVariablesY.append(yEnd)
                 else:
                     # TODO: domain reduction for each bin where item i is the biggest placeable item
                     boundedM = i if i < m else m - 1
 
                     # TODO: apply bin domains to these variables
-                    d = model.NewIntVar(0, (boundedM + 1) * W - item.Dx, f'xb1.{i}')
-                    e = model.NewIntVar(item.Dx, (boundedM + 1) * W, f'xb2.{i}')
+                    globalStartX = model.NewIntVar(0, (boundedM + 1) * binDx - item.Dx, f'xb1.{i}')
+                    globalEndX = model.NewIntVar(item.Dx, (boundedM + 1) * binDx, f'xb2.{i}')
                     
-                    xb1.append(d)
-                    xb2.append(e)
+                    startVariablesGlobalX.append(globalStartX)
+                    endVariablesGlobalX.append(globalEndX)
 
-                    yStart = model.NewIntVar(0, H - item.Dy,f'y1.{i}')
-                    yEnd = model.NewIntVar(item.Dy, H,f'y2.{i}')
+                    yStart = model.NewIntVar(0, binDy - item.Dy,f'y1.{i}')
+                    yEnd = model.NewIntVar(item.Dy, binDy,f'y2.{i}')
 
-                    y1.append(yStart)
-                    y2.append(yEnd)
-
+                    startVariablesY.append(yStart)
+                    endVariablesY.append(yEnd)
 
         # interval variables
-        xival = [model.NewIntervalVar(xb1[i], items[i].Dx, xb2[i],f'xival{i}') for i in range(n)]
-        yival = [model.NewIntervalVar(y1[i], items[i].Dy, y2[i],f'yival{i}') for i in range(n)]
+        intervalX = [model.NewIntervalVar(startVariablesGlobalX[i], items[i].Dx, endVariablesGlobalX[i],f'xival{i}') for i in range(n)]
+        intervalY = [model.NewIntervalVar(startVariablesY[i], items[i].Dy, endVariablesY[i],f'yival{i}') for i in range(n)]
 
         # Also add lifted cuts from MIP via https://developers.google.com/optimization/reference/python/sat/python/cp_model#addforbiddenassignments
         #model.AddForbiddenAssignments([b[1], b[2]], [(0, 0), (1, 1)])
-        self.AddIncompatibilityCuts(incompatibleItems, fixItemToBin, model, b)
+        self.AddIncompatibilityCuts(incompatibleItems, fixItemToBin, model, placedBinVariables)
 
-        lowerBoundAreaBin = math.ceil(float(totalArea) / float(H * W))
+        lowerBoundAreaBin = math.ceil(float(totalArea) / float(binDy * binDx))
         #lowerBound = min(lowerBoundAreaBin, lowerBoundBin)
         lowerBound = lowerBoundAreaBin
 
@@ -250,19 +251,25 @@ class BinPackingSolverCP():
 
         # constraints
         for i, item in enumerate(items):
-            model.Add(xb1[i] == x[i] + b[i]*W)
-            model.Add(xb2[i] == xb1[i] + item.Dx) # should already be ensured by interval vars xival
+            model.Add(startVariablesGlobalX[i] == startVariablesLocalX[i] + placedBinVariables[i]*binDx)
+            #model.Add(xb2[i] == xb1[i] + item.Dx) # should already be ensured by interval variables
 
-        model.AddNoOverlap2D(xival, yival)
+        model.AddNoOverlap2D(intervalX, intervalY)
 
-        model.AddMaxEquality(z, [b[i] for i in range(n)])
+        #upperBoundBin = m
+        #demandsX = [item.Dx for item in items]
+        demandsY = [item.Dy for item in items]
+        model.AddCumulative(intervalX, demandsY, binDy)
+        #model.AddCumulative(intervalY, demandsX, upperBoundBin * binDx)
+
+        model.AddMaxEquality(z, [placedBinVariables[i] for i in range(n)])
 
         # objective
         model.Minimize(z + 1)    
 
         # solve model
         solver = cp_model.CpSolver()
-        # log does not work inside a Jupyter notebook
+        
         solver.parameters.log_search_progress = enableLogging
         solver.parameters.max_time_in_seconds = timeLimit
         solver.parameters.num_search_workers = 8
@@ -286,31 +293,21 @@ class BinPackingSolverCP():
         self.LB = solver.BestObjectiveBound()
         self.UB = solver.ObjectiveValue()
 
-        self.ItemBinAssignments = [solver.Value(b[i]) for i in range(n)]
+        self.ItemBinAssignments = [solver.Value(placedBinVariables[i]) for i in range(n)]
 
-        xArray = [solver.Value(xb1[i]) for i in range(n)]
-        yArray = [solver.Value(y1[i]) for i in range(n)]
+        xArray = [solver.Value(startVariablesGlobalX[i]) for i in range(n)]
+        yArray = [solver.Value(startVariablesY[i]) for i in range(n)]
 
-        rectangles = ExtractDataForPlot(xArray, yArray, w, h, W, H)
+        rectangles = ExtractDataForPlot(xArray, yArray, items, binDx, binDy)
 
         return rectangles
 
 def main():
     #h, w, H, W, m = ReadExampleData()
-    items, H, W = ReadBenchmarkData(92)
-
-    w = []
-    h = []
-    for i, item in enumerate(items):
-        w.append(item.Dx)
-        h.append(item.Dy)
-    
-    # worse CP performance when passing lower bound
-    totalArea = numpy.dot(w,h)
-    lowerBoundBinArea = math.ceil(float(totalArea) / float(W * H)) # homogeneous bins!
+    items, H, W = ReadBenchmarkData(88)
 
     solver = BinPackingSolverCP()
-    rectangles = solver.SolveOneBigBinModel(items, h, w, H, W, 1, len(items), 30)
+    rectangles = solver.SolveOneBigBinModel(items, H, W, 1, len(items), 30)
 
     objBoundUB = solver.UB
 

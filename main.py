@@ -13,7 +13,7 @@ def main():
     #hardInstances = [226, 232, 242, 242, 244, 245, 247, 248, 249, 261, 292, 313, 314, 332, 173, 187, 188, 191, 197, 142, 143, 145, 146, 149]
     #mediumInstance = [149, 174]
 
-    for instance in range(143, 501):
+    for instance in range(120, 501):
     #for instance in hardInstances:
         currentInstanceId = instance
         items, H, W = ReadBenchmarkData(instance)

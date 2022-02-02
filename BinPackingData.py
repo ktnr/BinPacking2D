@@ -58,16 +58,16 @@ def ReadBenchmarkData(id):
 
     return newItems, H, W
 
-def ExtractDataForPlot(x, y, w, h, W, H):
+def ExtractDataForPlot(x, y, items, W, H):
     rectangles = []
-    for i in range(len(h)):
+    for i, item in enumerate(items):
         solutionX1 = x[i]
         solutionY1 = y[i]
         
-        solutionX2 = x[i] + w[i]
-        solutionY2 = y[i] + h[i]
+        solutionX2 = x[i] + item.Dx
+        solutionY2 = y[i] + item.Dy
 
-        color = matplotlib.colors.to_hex([ 1.0 - w[i] / W, 1.0 - h[i] / H, 1.0 ])
+        color = matplotlib.colors.to_hex([ 1.0 - item.Dx / W, 1.0 - item.Dy / H, 1.0 ])
 
         rect = [(solutionX1, solutionY1), (solutionX2, solutionY2), color]
 

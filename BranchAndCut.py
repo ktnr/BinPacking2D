@@ -480,13 +480,15 @@ class BinPackingMip:
                 xArray = [(b * bin.Dx) + binPacking2D.Solver.Value(binPacking2D.StartX[i]) for i in range(numberOfItems)]
                 yArray = [binPacking2D.Solver.Value(binPacking2D.StartY[i]) for i in range(numberOfItems)]
 
+            """
             w = []
             h = []
             for item in itemsInBin:
                 w.append(item.Dx)
                 h.append(item.Dy)
+            """
 
-            rectangles = ExtractDataForPlot(xArray, yArray, w, h, bin.Dx, bin.Dy)
+            rectangles = ExtractDataForPlot(xArray, yArray, itemsInBin, bin.Dx, bin.Dy)
 
             rectanglesArray.extend(rectangles)
 
@@ -720,11 +722,6 @@ class BinPackingMip:
             print(f'Knapsack time lifting: {self.Model._KnapsackTimeLifting}')
             """
 
-        #xArray = [solver.Value(xb1[i]) for i in range(n)]
-        #yArray = [solver.Value(y1[i]) for i in range(n)]
-
-        #rectangles = ExtractDataForPlot(xArray, yArray, w, h, W, H)
-
         return rectangles
 
 class BinPackingBranchAndCutSolver:
@@ -763,7 +760,7 @@ class BinPackingBranchAndCutSolver:
             h.append(item.Dy)
             w.append(item.Dx)
 
-        rectangles = solverCP.SolveOneBigBinModel(items, h, w, H, W, lowerBoundBin, len(items), 300, False, self.IncompatibleItems)
+        rectangles = solverCP.SolveOneBigBinModel(items, H, W, lowerBoundBin, len(items), 60, False, self.IncompatibleItems)
 
         if solverCP.LB == solverCP.UB:
             return True, solverCP.LB, "CP", rectangles
