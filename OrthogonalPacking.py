@@ -209,14 +209,20 @@ class OrthogonalPacking2D:
             else:
                 return False
 
+        # https://github.com/google/or-tools/blob/2cb85b4eead4c38e1c54b48044f92087cf165bce/ortools/sat/sat_parameters.proto
         self.Solver = cp_model.CpSolver()
         self.Solver.parameters.log_search_progress = False 
         self.Solver.parameters.num_search_workers = 8
         #self.Solver.parameters.use_cumulative_in_no_overlap_2d = True
         #self.Solver.parameters.use_disjunctive_constraint_in_cumulative_constraint = True
         #self.Solver.parameters.use_timetable_edge_finding_in_cumulative_constraint = True
+        #self.Solver.parameters.use_overload_checker_in_cumulative_constraint = True
         #self.Solver.parameters.max_time_in_seconds = 300
-        #solver.parameters.cp_model_presolve = False
+        #self.Solver.parameters.optimize_with_lb_tree_search = True;
+        #self.Solver.parameters.binary_search_num_conflicts  = 99;
+        #self.Solver.parameters.stop_after_first_solution = True;
+        #self.Solver.parameters.symmetry_level = 1;
+        #self.Solver.parameters.cp_model_presolve = False
 
         """
         numberOfItems = len(self.Items)
