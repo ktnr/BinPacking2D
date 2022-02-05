@@ -9,6 +9,30 @@ class PlacementPointStrategy(IntEnum):
 class PlacementPointGenerator:
 
     @staticmethod
+    def CreatePlacementPoints(placementPointStrategy, item, filteredItems, bin):
+        binDx = bin.Dx
+        binDy = bin.Dy
+        placementPointsX = []
+        placementPointsY = []
+        if placementPointStrategy == PlacementPointStrategy.UnitDiscretization:
+            placementPointsX = range(0, binDx + 1 - item.Dx)
+            placementPointsY = range(0, binDy + 1 - item.Dy)
+        elif placementPointStrategy == PlacementPointStrategy.NormalPatterns:
+            placementPointsX, placementPointsY = PlacementPointGenerator.DetermineNormalPatterns(filteredItems, binDx - item.Dx, binDy - item.Dy)
+        elif placementPointStrategy == PlacementPointStrategy.MeetInTheMiddlePatterns:
+            placementPointsX, placementPointsY = PlacementPointGenerator.DetermineMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy)
+            raise ValueError("Meet-in-the-middle patterns might not be accurate, see #2.")
+            raise ValueError("Meet-in-the-middle patterns is incompatible with domain reduction.")
+        elif placementPointStrategy == PlacementPointStrategy.MinimalMeetInTheMiddlePatterns:
+            placementPointsX, placementPointsY = PlacementPointGenerator.DetermineMinimalMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy)
+            raise ValueError("Minimal meet-in-the-middle patterns might not be accurate, see #2.")
+            raise ValueError("Meet-in-the-middle patterns is incompatible with domain reduction.")
+        else:
+            raise ValueError('UnkownPlacementPointStrategy')
+
+        return placementPointsX, placementPointsY
+
+    @staticmethod
     def DetermineNormalPatternsX(items, binDx, offsetX = 0):
         if binDx <= 0:
             return [0]
