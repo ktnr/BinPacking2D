@@ -151,9 +151,11 @@ class OrthogonalPacking2D:
             elif placementPointStrategy == PlacementPointStrategy.MeetInTheMiddlePatterns:
                 placementPointsX, placementPointsY = PlacementPointGenerator.DetermineMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy)
                 raise ValueError("Meet-in-the-middle patterns might not be accurate, see #2.")
+                raise ValueError("Meet-in-the-middle patterns is incompatible with domain reduction.")
             elif placementPointStrategy == PlacementPointStrategy.MinimalMeetInTheMiddlePatterns:
                 placementPointsX, placementPointsY = PlacementPointGenerator.DetermineMinimalMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy)
                 raise ValueError("Minimal meet-in-the-middle patterns might not be accurate, see #2.")
+                raise ValueError("Meet-in-the-middle patterns is incompatible with domain reduction.")
             else:
                 raise ValueError('UnkownPlacementPointStrategy')
 

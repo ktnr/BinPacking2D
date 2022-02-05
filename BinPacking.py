@@ -1,10 +1,12 @@
 from ortools.sat.python import cp_model
 from ortools.sat.python.cp_model import Domain
 
+import sys
 import math
 import pandas
 import numpy
 
+from Preprocess import Preprocess
 from BinPackingData import *
 
 from Model import *
@@ -34,10 +36,11 @@ class BinPackingSolverCP:
         self.ItemBinAssignments = []
     
     def Solve(self, modelType = 'OneBigBin'):
+        bin = Bin(self.binDx, self.binDy)
         if modelType == 'OneBigBin':
             model = OneBigBinModel()
         elif modelType == 'StripPackOneBigBin':
-            model = StripPackOneBigBinModel()
+            model = StripPackOneBigBinModel(self.items, bin)
         else:
             raise ValueError("Invalid bin packing model type.")
         
@@ -63,9 +66,8 @@ class PairwiseAssignmentModel:
     def Solve(self, items, binDy, binDx, lowerBoundBins, upperBoundBins, timeLimit = 3600, enableLogging = True, incompatibleItems = None):
         pass
 
-
 class StripPackOneBigBinModel:
-    def __init__(self):
+    def __init__(self, items, bin):
         self.IsOptimal = False
         self.LB = -1
         self.UB = -1
@@ -73,6 +75,25 @@ class StripPackOneBigBinModel:
         self.EnableNormalPatterns = False
 
         self.ItemBinAssignments = []
+
+        self.solver = cp_model.CpSolver()
+        self.model = cp_model.CpModel()
+
+        self.startVariablesGlobalX = []
+        self.startVariablesY = []
+        self.intervalX = []
+        self.intervalY = []
+        self.loadingLength = None
+
+        self.itemArea = 0.0
+        self.lowerBoundAreaBin = 0.0
+        #self.upperBoundBins = sys.maxsize
+
+        self.preprocess = Preprocess(items, bin)
+        #self.globalNormalPatternsX = []
+        #self.itemNormalPatternsX = []
+        #self.itemNormalPatternsY = []
+        #self.fixItemToBin = []
 
     class EndPositionPlacementAbortCallback(cp_model.CpSolverSolutionCallback):
         def __init__(self, binDx):
@@ -91,106 +112,72 @@ class StripPackOneBigBinModel:
             if int(self.UB) - int(self.LB) == 0:
                 self.StopSearch()
 
-    def Solve(self, items, binDy, binDx, lowerBoundBins, upperBoundBins, timeLimit = 3600, enableLogging = True, incompatibleItems = None):
+    def CreateVariables(self, items, binDx, binDy):
+        self.CreatePlacementVariables(items, binDx, binDy)
+        self.CreateIntervalVariables(items)
 
-        n = len(items)
-
-        model = cp_model.CpModel()
-
-        #preprocessing
-        fixItemToBin = SymmetryBreaking.FixIncompatibleItems(incompatibleItems, n)
-
-        #binDomains = SymmetryBreaking.CreateReducedBinDomains(incompatibleItems, n, upperBoundBins, fixItemToBin)
-
-        itemNormalPatternsX, itemNormalPatternsY, globalNormalPatternsX = [], [], []
-        if self.EnableNormalPatterns:
-            itemNormalPatternsX, itemNormalPatternsY, globalNormalPatternsX = self.CreateBinDependentNormalPatterns(incompatibleItems, fixItemToBin, items, upperBoundBins, binDx, binDy)
-        
-        # variables
-
-        startVariablesGlobalX = []
-        #endVariablesGlobalX = []
-        startVariablesY = []
-        #endVariablesY = []
-        totalArea = 0.0
+    def CreatePlacementVariables(self, items, binDx, binDy):
         for i, item in enumerate(items):
 
-            totalArea += item.Dx * item.Dy
+            self.itemArea += item.Dx * item.Dy
             
             if self.EnableNormalPatterns:
-                filteredStartX = [p for p in globalNormalPatternsX[i] if (p % binDx) + item.Dx <= binDx]
-                filteredEndX = [p + item.Dx for p in filteredStartX]
-                globalStartX = model.NewIntVarFromDomain(Domain.FromValues(filteredStartX), f'xb1.{i}')
-                #globalEndX = model.NewIntVarFromDomain(Domain.FromValues(filteredEndX), f'xb2.{i}')
+                filteredStartX = [p for p in self.preprocess.GlobalNormalPatternsX[i] if (p % binDx) + item.Dx <= binDx]
+                globalStartX = self.model.NewIntVarFromDomain(Domain.FromValues(filteredStartX), f'xb1.{i}')
 
-                startVariablesGlobalX.append(globalStartX)
-                #endVariablesGlobalX.append(globalEndX)
+                self.startVariablesGlobalX.append(globalStartX)
 
-                filteredStartY = [p for p in itemNormalPatternsY[i] if p + item.Dy <= binDy]
-                #filteredEndY = [p + item.Dy for p in filteredStartY]
-                yStart = model.NewIntVarFromDomain(Domain.FromValues(filteredStartY),f'y1.{i}')
-                #yEnd = model.NewIntVarFromDomain(Domain.FromValues(filteredEndY),f'y2.{i}')
+                filteredStartY = [p for p in self.preprocess.ItemNormalPatternsY[i] if p + item.Dy <= binDy]
+                yStart = self.model.NewIntVarFromDomain(Domain.FromValues(filteredStartY),f'y1.{i}')
 
-                startVariablesY.append(yStart)
-                #endVariablesY.append(yEnd)
+                self.startVariablesY.append(yStart)
             else:
-                if fixItemToBin[i]:
+                if self.preprocess.FixItemToBin[i]:
                     # do domain reduction
                     reducedDomainX = SymmetryBreaking.ReducedDomainX(binDx, item)
-                    globalStartX = model.NewIntVar(i*binDx, i*binDx + reducedDomainX, f'xb1.{i}')
-                    #globalEndX = model.NewIntVar(i*binDx + item.Dx, i*binDx + reducedDomainX + item.Dx, f'xb2.{i}')
-                    #d = model.NewIntVar(i*W, (i + 1)*W - item.Dx, f'xb1.{i}')
-                    #e = model.NewIntVar(i*W + item.Dx, (i + 1)*W, f'xb2.{i}')
+                    globalStartX = self.model.NewIntVar(i*binDx, i*binDx + reducedDomainX, f'xb1.{i}')
 
-                    startVariablesGlobalX.append(globalStartX)
-                    #endVariablesGlobalX.append(globalEndX)
+                    self.startVariablesGlobalX.append(globalStartX)
                     
                     reducedDomainY = SymmetryBreaking.ReducedDomainY(binDy, item)
-                    yStart = model.NewIntVar(0, reducedDomainY,f'y1.{i}')
-                    #yEnd = model.NewIntVar(item.Dy, reducedDomainY + item.Dy,f'y2.{i}')
+                    yStart = self.model.NewIntVar(0, reducedDomainY,f'y1.{i}')
 
-                    startVariablesY.append(yStart)
-                    #endVariablesY.append(yEnd)
+                    self.startVariablesY.append(yStart)
                 else:
                     # TODO: domain reduction for each bin where item i is the biggest placeable item
-                    boundedM = i if i < upperBoundBins else upperBoundBins - 1
+                    boundedM = i if i < self.preprocess.UpperBoundsBin else self.preprocess.UpperBoundsBin - 1
 
                     # TODO: apply bin domains to these variables
-                    globalStartX = model.NewIntVarFromDomain(cp_model.Domain.FromIntervals([[binDx * m, binDx * (m + 1) - item.Dx] for m in range(boundedM + 1)]), f'xb1.{i}')
-                    #globalEndX = model.NewIntVarFromDomain(cp_model.Domain.FromIntervals([[(binDx * m) + item.Dx, binDx * (m + 1)] for m in range(boundedM + 1)]), f'xb1.{i}')
+                    globalStartX = self.model.NewIntVarFromDomain(cp_model.Domain.FromIntervals([[binDx * m, binDx * (m + 1) - item.Dx] for m in range(boundedM + 1)]), f'xb1.{i}')
                     
-                    startVariablesGlobalX.append(globalStartX)
-                    #endVariablesGlobalX.append(globalEndX)
+                    self.startVariablesGlobalX.append(globalStartX)
 
-                    yStart = model.NewIntVar(0, binDy - item.Dy,f'y1.{i}')
-                    yEnd = model.NewIntVar(item.Dy, binDy,f'y2.{i}')
+                    yStart = self.model.NewIntVar(0, binDy - item.Dy,f'y1.{i}')
 
-                    startVariablesY.append(yStart)
-                    #endVariablesY.append(yEnd)
+                    self.startVariablesY.append(yStart)
 
-        # interval variables
-        intervalX = [model.NewFixedSizeIntervalVar(startVariablesGlobalX[i], items[i].Dx,f'xival{i}') for i in range(n)]
-        intervalY = [model.NewFixedSizeIntervalVar(startVariablesY[i], items[i].Dy,f'yival{i}') for i in range(n)]
+    def CreateIntervalVariables(self, items):
+        self.intervalX = [self.model.NewFixedSizeIntervalVar(self.startVariablesGlobalX[i], items[i].Dx,f'xival{i}') for i in range(len(items))]
+        self.intervalY = [self.model.NewFixedSizeIntervalVar(self.startVariablesY[i], items[i].Dy,f'yival{i}') for i in range(len(items))]
 
-        model.AddNoOverlap2D(intervalX, intervalY)
+    def CreateConstraints(self, items, binDx, binDy):
+        self.model.AddNoOverlap2D(self.intervalX, self.intervalY)
 
-        #upperBoundBin = m
-        #demandsX = [item.Dx for item in items]
         demandsY = [item.Dy for item in items]
-        model.AddCumulative(intervalX, demandsY, binDy)
+        self.model.AddCumulative(self.intervalX, demandsY, binDy)
+        #demandsX = [item.Dx for item in items]
         #model.AddCumulative(intervalY, demandsX, upperBoundBin * binDx)
 
-        # objective
-        lowerBoundAreaBin = math.ceil(float(totalArea) / float(binDy * binDx))
-        z = model.NewIntVar(lowerBoundAreaBin * binDx, (upperBoundBins + 1) * binDx,'z')
-        model.AddMaxEquality(z, [startVariablesGlobalX[i] + item.Dx for i, item in enumerate(items)])
+    def CreateObjective(self, items, binDx, binDy):
+        lowerBoundAreaBin = math.ceil(float(self.itemArea) / float(binDy * binDx))
 
-        # objective
-        model.Minimize(z)    
+        self.loadingLength = self.model.NewIntVar(lowerBoundAreaBin * binDx, (self.preprocess.UpperBoundsBin + 1) * binDx,'z')
 
-        # solve model
-        solver = cp_model.CpSolver()
-        
+        self.model.AddMaxEquality(self.loadingLength, [self.startVariablesGlobalX[i] + item.Dx for i, item in enumerate(items)])
+
+        self.model.Minimize(self.loadingLength)    
+
+    def SetParameters(self, solver, enableLogging, timeLimit):
         solver.parameters.log_search_progress = enableLogging
         solver.parameters.max_time_in_seconds = timeLimit
         solver.parameters.num_search_workers = 8
@@ -205,11 +192,36 @@ class StripPackOneBigBinModel:
         #solver.parameters.symmetry_level = 2
         #solver.parameters.cp_model_presolve = False
 
+    def Solve(self, items, binDy, binDx, lowerBoundBins, upperBoundBins, timeLimit = 3600, enableLogging = True, incompatibleItems = None):
+
+        self.preprocess.Run()
+
+        newItems = self.preprocess.ProcessedItems
+
+        """
+        self.upperBoundBins = upperBoundBins
+
+        #preprocessing
+        self.fixItemToBin = SymmetryBreaking.FixIncompatibleItems(incompatibleItems, n)
+
+        #binDomains = SymmetryBreaking.CreateReducedBinDomains(incompatibleItems, n, upperBoundBins, fixItemToBin)
+
+        if self.EnableNormalPatterns:
+            self.itemNormalPatternsX, self.itemNormalPatternsY, self.globalNormalPatternsX = SymmetryBreaking.CreateBinDependentNormalPatterns(incompatibleItems, self.fixItemToBin, items, upperBoundBins, binDx, binDy)
+        """
+
+        self.CreateVariables(newItems, binDx, binDy)
+        self.CreateConstraints(newItems, binDx, binDy)
+        self.CreateObjective(newItems, binDx, binDy)
+
+        self.SetParameters(self.solver, enableLogging, timeLimit)
+        # solve model
+
         #with open(f"Model_{0}.txt","a") as f:
         #    f.write(str(model.Proto()))
 
         abortCallback = self.EndPositionPlacementAbortCallback(binDx)
-        rc = solver.Solve(model, abortCallback)
+        rc = self.solver.Solve(self.model, abortCallback)
         #print(f"return code:{rc}")
         #print(f"status:{solver.StatusName()}")
         #print(f"Objective:{solver.ObjectiveValue()}")
@@ -217,20 +229,20 @@ class StripPackOneBigBinModel:
         #print(f"Objective:{solver.ResponseProto()}")
         #print(f"Objective:{solver.ResponseStats()}")
         
-        status = solver.StatusName()
+        status = self.solver.StatusName()
         if status == 'UNKNOWN':
             raise ValueError("Start solution could not be determined (CP status == UNKNOWN)")
 
-        self.IsOptimal = 1 if solver.StatusName() == 'OPTIMAL' else 0
-        self.LB = math.ceil(float(solver.BestObjectiveBound()) / float(binDx))
-        self.UB = math.ceil(float(solver.ObjectiveValue()) / float(binDx))
+        self.IsOptimal = 1 if self.solver.StatusName() == 'OPTIMAL' else 0
+        self.LB = math.ceil(float(self.solver.BestObjectiveBound()) / float(binDx))
+        self.UB = math.ceil(float(self.solver.ObjectiveValue()) / float(binDx))
 
         #self.ItemBinAssignments = [solver.Value(placedBinVariables[i]) for i in range(n)]
 
-        xArray = [solver.Value(startVariablesGlobalX[i]) for i in range(n)]
-        yArray = [solver.Value(startVariablesY[i]) for i in range(n)]
+        xArray = [self.solver.Value(self.startVariablesGlobalX[i]) for i in range(len(items))]
+        yArray = [self.solver.Value(self.startVariablesY[i]) for i in range(len(items))]
 
-        rectangles = ExtractDataForPlot(xArray, yArray, items, binDx, binDy)
+        rectangles = ExtractDataForPlot(xArray, yArray, newItems, binDx, binDy)
 
         return rectangles
 
@@ -267,7 +279,7 @@ class OneBigBinModel:
         model = cp_model.CpModel()
 
         #preprocessing
-        fixItemToBin = SymmetryBreaking.FixIncompatibleItems(incompatibleItems, n)
+        fixItemToBin = SymmetryBreaking.DetermineFixedItems(incompatibleItems, n)
 
         binDomains = SymmetryBreaking.CreateReducedBinDomains(incompatibleItems, n, upperBoundBins, fixItemToBin)
 

@@ -86,13 +86,13 @@ class BinPackingCallback:
         liftedSet = list(infeasibleItemSubset)
         additionalItems = []
         for i in range(len(itemVariables)):
-            if i in infeasibleItemSubset or i < binId or model._FixItemToBin[i]:
+            if i in infeasibleItemSubset or i < binId or model._Preprocess.FixItemToBin[i]:
                 continue
 
             skipItem = False
             for j in infeasibleItemSubset:
-                #isIncompatible = frozenset(i, j) in model._IncompatibleItems
-                if model._FixItemToBin[j] and frozenset((i, j)) in model._IncompatibleItems:
+                #isIncompatible = frozenset(i, j) in model._Preprocess.IncompatibleItems
+                if model._Preprocess.FixItemToBin[j] and frozenset((i, j)) in model._Preprocess.IncompatibleItems:
                     skipItem = True
                     break
             
@@ -101,7 +101,7 @@ class BinPackingCallback:
 
             # check against _FeasibleSets or _InfeasibleSets
 
-            upperBound = BinPackingCallback.SolveKnapsack2D(liftedSet, i, model._FixItemToBin, model._Bins[binId], objectiveCoefficients, model, 1.0)
+            upperBound = BinPackingCallback.SolveKnapsack2D(liftedSet, i, model._Preprocess.FixItemToBin, model._Bins[binId], objectiveCoefficients, model, 1.0)
             
             liftingCoefficient = max(0, len(infeasibleItemSubset) - 1 - upperBound)
             if liftingCoefficient > 0:
@@ -132,10 +132,10 @@ class BinPackingCallback:
         #filteredBins = [b for b, bin in enumerate(model._Bins) if b <= minItemId and b < upperBoundBin]
         #BinPackingCallback.AddLiftedCoverInequality(infeasibleItemSubset, additionalItems, liftingCoefficients, itemVariables, filteredBins, model)
         
-        if model._FixItemToBin[binId]:
+        if model._Preprocess.FixItemToBin[binId]:
             BinPackingCallback.AddLiftedCoverInequality(infeasibleItemSubset, additionalItems, liftingCoefficients, itemVariables, [binId], model)
         else:
-            filteredBins = [b for b, bin in enumerate(model._Bins) if b <= minItemId and b < upperBoundBin]# and not model._FixItemToBin[b]]
+            filteredBins = [b for b, bin in enumerate(model._Bins) if b <= minItemId and b < upperBoundBin]# and not model._Preprocess.FixItemToBin[b]]
             BinPackingCallback.AddLiftedCoverInequality(infeasibleItemSubset, additionalItems, liftingCoefficients, itemVariables, filteredBins, model)
 
     @staticmethod
@@ -171,10 +171,10 @@ class BinPackingCallback:
 
                 return
 
-            if frozenset(itemIndices) in model._InfeasibleSets or frozenset(itemIndices) in model._IncompatibleItems:
+            if frozenset(itemIndices) in model._InfeasibleSets or frozenset(itemIndices) in model._Preprocess.IncompatibleItems:
                 #raise ValueError('No previously discovered infeasible subsets should be found during cut strengthening.')
                 model._InfeasibleDoubleCount += 1
-                #print(f"Double count in bin {binId} (fixed = {model._FixItemToBin[binId]}): {itemIndices} vs. {[item.Id for i, item in enumerate(items)]}")
+                #print(f"Double count in bin {binId} (fixed = {model._Preprocess.FixItemToBin[binId]}): {itemIndices} vs. {[item.Id for i, item in enumerate(items)]}")
                 continue
                 #BinPackingCallback.AddCut(itemIndices, model._VarsX, model._Bins, model)
                 #return
@@ -258,9 +258,9 @@ class BinPackingCallback:
             if frozenset(itemIndices) in model._FeasibleSets:
                 continue
 
-            if frozenset(itemIndices) in model._InfeasibleSets:# or frozenset(itemIndices) in model._IncompatibleItems:
+            if frozenset(itemIndices) in model._InfeasibleSets:# or frozenset(itemIndices) in model._Preprocess.IncompatibleItems:
                 #raise ValueError('Infeasible items occured twice')
-                #print(f"Double count in bin {b} (fixed = {model._FixItemToBin[b]}): {itemIndices}")
+                #print(f"Double count in bin {b} (fixed = {model._Preprocess.FixItemToBin[b]}): {itemIndices}")
                 model._InfeasibleDoubleCount += 1
                 infeasibleSubproblems += 1 # only count new cuts
                 BinPackingCallback.AddCut(itemIndices, model._VarsX, [b], model)
@@ -326,8 +326,8 @@ class BinPackingMip:
         self.Enable2D = enable2D
 
         self.LowerBoundBin = 1
-        self.FixItemToBin = []
-        self.IncompatibleItems = set()
+
+        self.Preprocess = None
         
         InstanceId = -1
 
@@ -366,6 +366,7 @@ class BinPackingMip:
         lb1D = lowerBoundBinArea
         if self.Enable2D:
             binPacking1D = BinPackingMip(False)
+            binPacking1D.Preprocess = self.Preprocess
 
             binPacking1D.AddItems(list(self.Items))
             binPacking1D.AddBins([self.Bins[0].Dx] * len(self.Bins), [self.Bins[0].Dy] * len(self.Bins))
@@ -408,7 +409,7 @@ class BinPackingMip:
 
             self.Model.addConstr(itemsInBin <= bin.WeightLimit * self.BinVariables[b])
 
-            # symmetry breaking, only valid if bins homogeneous
+            # symmetry breaking, only valid if bins are homogeneous
             if b < len(self.Bins) - 1:
                 self.Model.addConstr(self.BinVariables[b + 1] <= self.BinVariables[b])
 
@@ -421,8 +422,7 @@ class BinPackingMip:
         self.Model._Items = self.Items
         self.Model._Bins = self.Bins
         self.Model._VarsX = self.ItemVariables
-        self.Model._IncompatibleItems = self.IncompatibleItems
-        self.Model._FixItemToBin = self.FixItemToBin
+        self.Model._Preprocess = self.Preprocess
 
         self.Model._FeasibleSets = set()
         self.Model._InfeasibleSets = set()
@@ -560,32 +560,18 @@ class BinPackingMip:
             for i in assigment:
                 self.ItemVariables[b][i].Start = 1.0
 
-    def FixIncompatibleItems(self, incompatibleItems):
+    def FixIncompatibleItems(self, fixItemToBin):
         numberOfItems = len(self.Items)
-        fixItemToBin = [False] * len(self.Items)
-
         # This is a similar logic as in section 6.2 in Cote, Haouari, Iori (2019). 
-        self.ItemVariables[0][0].LB = 1.0
-        fixItemToBin[0] = True
-
-        for i in range(1, numberOfItems):
-            itemI = self.Items[i]
-
-            isIncompatible = True
-            for j in range(0, i):
-                if frozenset((i, j)) not in incompatibleItems:
-                    isIncompatible = False
-                    return fixItemToBin
-            
-            if isIncompatible:
-                fixItemToBin[i] = True
+        for i in range(0, numberOfItems):
+            if fixItemToBin[i]:
                 for b, bin in enumerate(self.Bins):
                     if b == i:
                         self.ItemVariables[b][i].LB = 1.0
                     else:
                         self.ItemVariables[b][i].UB = 0.0
-
-        return fixItemToBin
+            else:
+                return
 
     def AddLiftedCoverInequality(self, infeasibleItemSubset, additionalItems, liftingCoefficients, itemVariables, bins, model):
         for b in bins:
@@ -611,20 +597,20 @@ class BinPackingMip:
             liftedSet = list(infeasibleItemSubset)
             additionalItems = []
             for i in range(len(itemVariables)):
-                if i in infeasibleItemSubset or i < b or (model._FixItemToBin[i] and b != i):# or i < minIdInitial: or model._FixItemToBin[i] 
+                if i in infeasibleItemSubset or i < b or (model._Preprocess.FixItemToBin[i] and b != i):# or i < minIdInitial: or model._Preprocess.FixItemToBin[i] 
                     continue
 
                 skipItem = False
                 for j in liftedSet:
-                    #isIncompatible = frozenset(i, j) in model._IncompatibleItems
-                    if (model._FixItemToBin[j] and frozenset((i, j)) in model._IncompatibleItems):
+                    #isIncompatible = frozenset(i, j) in model._Preprocess.IncompatibleItems
+                    if (model._Preprocess.FixItemToBin[j] and frozenset((i, j)) in model._Preprocess.IncompatibleItems):
                         skipItem = True
                         break
                 
                 if skipItem:
                     continue
 
-                upperBound = BinPackingCallback.SolveKnapsack2D(liftedSet, i, model._FixItemToBin, model._Bins[0], objectiveCoefficients, model, 1.0)
+                upperBound = BinPackingCallback.SolveKnapsack2D(liftedSet, i, model._Preprocess.FixItemToBin, model._Bins[0], objectiveCoefficients, model, 1.0)
                 
                 liftingCoefficient = max(0, len(infeasibleItemSubset) - 1 - upperBound)
                 if liftingCoefficient > 0:
@@ -683,15 +669,14 @@ class BinPackingMip:
                 self.Model.addConstr(expr <= len(incompatibleSet) - 1)
             """
 
-    def ApplyPreprocessChanges(self, incompatibleItems):
-        fixItemToBin = self.FixIncompatibleItems(incompatibleItems)
-
-        self.FixItemToBin = fixItemToBin
-        self.IncompatibleItems = incompatibleItems
+    def ApplyPreprocessChanges(self, preprocess):
+        fixItemToBin = preprocess.FixItemToBin
+        self.FixIncompatibleItems(fixItemToBin)
 
         self.SetCallbackData()
 
-        self.AddIncompatibilityCuts(incompatibleItems, self.FixItemToBin)
+        incompatibleItems = preprocess.IncompatibleItems
+        self.AddIncompatibilityCuts(incompatibleItems, fixItemToBin)
         
     def Solve(self):
         #self.SetCallbackData()
@@ -729,15 +714,14 @@ class BinPackingBranchAndCutSolver:
         self.BinPacking = BinPackingMip()
         self.BinPacking.InstanceId = instanceId
 
-        self.RemovedItems = []
-        self.IncompatibleItems = set()
-
         self.IsOptimal = False
         self.LB = -1
         self.UB = -1
         self.Runtime = -1
         self.SolverType = ""
         self.CutCount = -1
+
+        self.preprocess = None
 
     def RetrieveSolutionStatistics(self):
         if self.IsOptimal:
@@ -752,8 +736,7 @@ class BinPackingBranchAndCutSolver:
         self.SolverType = "B&C"
 
     def DetermineStartSolution(self, items, H, W, lowerBoundBin):
-        
-        solverCP = BinPackingSolverCP(items, H, W, lowerBoundBin, len(items), 60, False, self.IncompatibleItems)
+        solverCP = BinPackingSolverCP(items, H, W, lowerBoundBin, len(items), 60, False, self.preprocess.IncompatibleItems)
         rectangles = solverCP.Solve('OneBigBin')
 
         if solverCP.LB == solverCP.UB:
@@ -763,105 +746,31 @@ class BinPackingBranchAndCutSolver:
 
         return False, solverCP.LB, "B&C", rectangles
 
-    def RemoveLargeItems(self, items, H, W):
-        filteredItemIndices = []
-        for i, item in enumerate(items):
-            dy = item.Dy
-            dx = item.Dx
-
-            if dy == H and dx == W:
-                #print(f'Item {i} has the same dimensions as the bin and will be removed.')
-                self.RemovedItems.append(Item(i, dx, dy))
-                continue
-            
-            isFullyIncompatible = True
-            for j, itemJ in enumerate(items):
-                if i == j:
-                    continue
-
-                if item.Dx + itemJ.Dx > W and item.Dy + itemJ.Dy > H:
-                    continue
-
-                isFullyIncompatible = False
-                break
-
-            if isFullyIncompatible:
-                #print(f'Item {i} is fully incompatible and will be removed.')
-                self.RemovedItems.append(Item(i, dx, dy))
-                continue
-
-            filteredItemIndices.append(i)
-
-        self.BinPacking.Model.ObjCon = len(self.RemovedItems)
-
-        newItems = []
-        for index, i in enumerate(filteredItemIndices):
-            newItems.append(Item(index, items[i].Dx, items[i].Dy))
-
-        return newItems, len(filteredItemIndices)
-
-    def DetermineConflicts(self, items, H, W):
-        for i, itemI in enumerate(items):
-            for j in range(i + 1, len(items)):
-                itemJ = items[j]
-
-                if itemI.Dx + itemJ.Dx > W and itemI.Dy + itemJ.Dy > H:
-                    self.IncompatibleItems.add(frozenset((i, j)))
-                    continue
-
-    def Preprocess(self, items, H, W):
-        items = sorted(items, reverse=True) # TODO: build conflict graph and compute maximal clique
-        items, newNumberOfItems = self.RemoveLargeItems(items, H, W)
-
-        self.DetermineConflicts(items, H, W)
-
-        conflictGraph = nx.Graph()
-        conflictGraph.add_nodes_from([item.Id for i, item in enumerate(items)])
-        for i in range(len(items)):
-            itemI = items[i]
-            for j in range(len(items)):
-                itemJ = items[j]
-                if frozenset((itemI.Id, itemJ.Id)) in self.IncompatibleItems:
-                    conflictGraph.add_edge(itemI.Id, itemJ.Id)
-
-        maxClique = clique.max_clique(conflictGraph)
-        sortedMaxClique = sorted(maxClique)
-
-        newItems = []
-        for i, oldIndex in enumerate(sortedMaxClique):
-            newItems.append(Item(i, items[oldIndex].Dx, items[oldIndex].Dy))
-        
-        for i, item in enumerate(items):
-            if item.Id in sortedMaxClique:
-                continue
-            newItems.append(Item(len(newItems), items[item.Id].Dx, items[item.Id].Dy))
-            
-        items = newItems
-
-        self.IncompatibleItems.clear()
-        self.DetermineConflicts(items, H, W)
-
-        return items, newNumberOfItems
-
     def Run(self, items, H, W):   
-        items, numberOfItems = self.Preprocess(items, H, W)
+        bin = Bin(W, H)
 
-        self.BinPacking.AddItems(items)
+        self.preprocess = Preprocess(items, bin)
+        self.preprocess.Run()
+        newItems = self.preprocess.ProcessedItems
+        numberOfItems = len(newItems)
+
+        self.BinPacking.Preprocess = self.preprocess
+        self.BinPacking.AddItems(newItems)
         self.BinPacking.AddBins([W] * numberOfItems, [H] * numberOfItems)
 
         self.BinPacking.CreateVariables()
         self.BinPacking.CreateConstraints()
 
-        self.BinPacking.ApplyPreprocessChanges(self.IncompatibleItems)
+        self.BinPacking.ApplyPreprocessChanges(self.preprocess)
         
         #self.BinPacking.Model.write('BPP.lp')
 
-        isOptimalCP, lbCP, solverType, rectangles = self.DetermineStartSolution(items, H, W, self.BinPacking.LowerBoundBin)
+        isOptimalCP, lbCP, solverType, rectangles = self.DetermineStartSolution(newItems, H, W, self.BinPacking.LowerBoundBin)
 
         if isOptimalCP:
             self.IsOptimal = 1
-            self.LB = lbCP + len(self.RemovedItems)
-            self.UB = lbCP + len(self.RemovedItems)
+            self.LB = lbCP + len(self.preprocess.RemovedItems)
+            self.UB = lbCP + len(self.preprocess.RemovedItems)
             self.SolverType = solverType
             self.Runtime = -1
 

@@ -25,7 +25,7 @@ class SymmetryBreaking:
 
     
     @staticmethod
-    def FixIncompatibleItems(incompatibleItems, numberOfItems):
+    def DetermineFixedItems(incompatibleItems, numberOfItems):
         # This is a similar logic as in section 6.2 in Cote, Haouari, Iori (2019). 
         fixItemToBin = [False] * numberOfItems
         fixItemToBin[0] = True
@@ -56,7 +56,6 @@ class SymmetryBreaking:
                 fullDomains.append([j for j in range(boundedNumberOfBins + 1)])
 
             return fullDomains
-
         
         for i in range(1, numberOfItems):
             boundedNumberOfBins = i if i < numberOfBins else numberOfBins - 1
@@ -76,6 +75,7 @@ class SymmetryBreaking:
 
         return fullDomains
 
+    @staticmethod
     def CreateBinDependentNormalPatterns(incompatibleItems, fixItemToBin, items, numberOfBins, binDx, binDy):
         bin = Bin(binDx, binDy)
         numberOfItems = len(items)
