@@ -1,7 +1,7 @@
 import math
 
 from Model import Item, Bin
-from PlacementPoints import PlacementPointGenerator
+from PlacementPoints import PlacementPointGenerator, PlacementPointStrategy
 
 class SymmetryBreaking:
     @staticmethod
@@ -16,14 +16,29 @@ class SymmetryBreaking:
         return maximumItemIndex
 
     @staticmethod
-    def ReducedDomainX(binDx, item):
-        return math.floor((binDx - item.Dx) / 2.0)
+    def ReducedDomainX(binDx, item, offsetX = 0):
+        return offsetX + math.floor((binDx - item.Dx) / 2.0)
 
     @staticmethod
     def ReducedDomainY(binDy, item):
         return math.floor((binDy - item.Dy) / 2.0)
 
+    @staticmethod
+    def IsDomainReductionCompatible(placementPointStrategy):
+        if placementPointStrategy == PlacementPointStrategy.UnitDiscretization or placementPointStrategy == PlacementPointStrategy.NormalPatterns:
+            return True
+        
+        return False
     
+    @staticmethod
+    def IsMaximalPlaceableItem(item, itemSubset, domainReducedItems, binId):
+        for otherItem in itemSubset:
+            if otherItem.Dx > item.Dx or binId in domainReducedItems[otherItem.Id]:
+            #if otherItem.Dx > item.Dx or domainReducedItems[otherItem.Id] == True:
+                return False
+
+        return True
+
     @staticmethod
     def DetermineFixedItems(incompatibleItems, numberOfItems):
         # This is a similar logic as in section 6.2 in Cote, Haouari, Iori (2019). 
@@ -76,12 +91,9 @@ class SymmetryBreaking:
         return fullDomains
 
     @staticmethod
-    def CreateBinDependentNormalPatterns(incompatibleItems, fixItemToBin, items, numberOfBins, binDx, binDy):
-        bin = Bin(binDx, binDy)
-        numberOfItems = len(items)
-        
-        itemSpecificNormalPatternsX = []
-        itemSpecificNormalPatternsY = []
+    def CreateBinDependentPlacementPatterns(incompatibleItems, fixItemToBin, items, numberOfBins, bin, placementPointStrategy = PlacementPointStrategy.NormalPatterns):        
+        itemSpecificPlacementPatternsX = []
+        itemSpecificPlacementPatternsY = []
 
         # Determine placement points for specific items depending on the combination with every other compatible item.
         for i, itemI in enumerate(items):
@@ -92,14 +104,24 @@ class SymmetryBreaking:
 
                 itemSubset.append(itemJ)
 
-            normalPatternsX, normalPatternsY = PlacementPointGenerator.DetermineNormalPatterns(itemSubset, bin.Dx - itemI.Dx, bin.Dy - itemI.Dy)
-            itemSpecificNormalPatternsX.append(normalPatternsX)
-            itemSpecificNormalPatternsY.append(normalPatternsY)
+            #normalPatternsX, normalPatternsY = PlacementPointGenerator.DetermineNormalPatterns(itemSubset, bin.Dx - itemI.Dx, bin.Dy - itemI.Dy)
+            placementPatternsX, placemenetPatternsY = PlacementPointGenerator.CreatePlacementPatterns(placementPointStrategy, itemI, itemSubset, bin)
+            
+            if fixItemToBin[i] and SymmetryBreaking.IsDomainReductionCompatible(placementPointStrategy):
+                reducedDomainX = SymmetryBreaking.ReducedDomainX(bin.Dx, itemI)
+                reducedDomainY = SymmetryBreaking.ReducedDomainY(bin.Dy, itemI)
+
+                itemSpecificPlacementPatternsX.append([p for p in placementPatternsX if p <= reducedDomainX])
+                itemSpecificPlacementPatternsY.append([p for p in placemenetPatternsY if p <= reducedDomainY])
+            else:
+                itemSpecificPlacementPatternsX.append(placementPatternsX)
+                itemSpecificPlacementPatternsY.append(placemenetPatternsY)
 
         # Determine placement points for items in specific bins and all other compatible items.
-        itemBinNormalPatternsX = []
+        domainReducedItems = [set() for _ in range(len(items))]
+        itemBinPlacementPatternsX = []
         for i, itemI in enumerate(items):
-            itemBinNormalPatternsX.append([])
+            itemBinPlacementPatternsX.append([])
 
             if fixItemToBin[i]:
                 itemSubset = []
@@ -108,8 +130,14 @@ class SymmetryBreaking:
                         continue
                     itemSubset.append(itemJ)
 
-                fixedBinNormalPatternsX, fixedBinNormalPatternsY = PlacementPointGenerator.DetermineNormalPatterns(itemSubset, bin.Dx - itemI.Dx, bin.Dy - itemI.Dy, i*bin.Dx)
-                itemBinNormalPatternsX[i].extend(fixedBinNormalPatternsX)
+                fixedBinPlacementPatternsX, fixedBinPlacementPatternsY = PlacementPointGenerator.CreatePlacementPatterns(placementPointStrategy, itemI, itemSubset, bin, i*bin.Dx)
+                if SymmetryBreaking.IsDomainReductionCompatible(placementPointStrategy):
+                    reducedDomainFixedBinX = SymmetryBreaking.ReducedDomainX(bin.Dx, itemI, i*bin.Dx)
+                    fixedBinPlacementPatternsX = [p for p in fixedBinPlacementPatternsX if p <= reducedDomainFixedBinX]
+
+                    domainReducedItems[itemI.Id].add(i)
+
+                itemBinPlacementPatternsX[i].extend(fixedBinPlacementPatternsX)
 
                 continue
 
@@ -124,7 +152,13 @@ class SymmetryBreaking:
                     
                     itemSubset.append(itemJ)
 
-                binSpecificNormalPatternsX, binSpecificNormalPatternsY = PlacementPointGenerator.DetermineNormalPatterns(itemSubset, bin.Dx - itemI.Dx, bin.Dy - itemI.Dy, b*bin.Dx)
-                itemBinNormalPatternsX[i].extend(binSpecificNormalPatternsX)
+                binSpecificPlacementPatternsX, binSpecificPlacementPatternsY = PlacementPointGenerator.CreatePlacementPatterns(placementPointStrategy, itemI, itemSubset, bin, b*bin.Dx)
+                if SymmetryBreaking.IsMaximalPlaceableItem(itemI, itemSubset, domainReducedItems, b) and SymmetryBreaking.IsDomainReductionCompatible(placementPointStrategy):
+                    binSpecificReducedDomainX = SymmetryBreaking.ReducedDomainX(bin.Dx, itemI, b*bin.Dx)
+                    binSpecificPlacementPatternsX = [p for p in binSpecificPlacementPatternsX if p <= binSpecificReducedDomainX]
 
-        return itemSpecificNormalPatternsX, itemSpecificNormalPatternsY, itemBinNormalPatternsX
+                    domainReducedItems[itemI.Id].add(b)
+
+                itemBinPlacementPatternsX[i].extend(binSpecificPlacementPatternsX)
+
+        return itemSpecificPlacementPatternsX, itemSpecificPlacementPatternsY, itemBinPlacementPatternsX

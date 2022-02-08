@@ -143,7 +143,7 @@ class OrthogonalPacking2D:
         
             filteredItems = [itemJ for j, itemJ in enumerate(self.Items) if i != j]
 
-            placementPointsX, placementPointsY = PlacementPointGenerator.CreatePlacementPoints(placementPointStrategy, item, filteredItems, self.Bin)
+            placementPointsX, placementPointsY = PlacementPointGenerator.CreatePlacementPatterns(placementPointStrategy, item, filteredItems, self.Bin)
 
             if i == reducedItemIndex:
                 placementPointsStartX = [p for p in placementPointsX if p + item.Dx <= binDx and p <= reducedDomainThresholdX]

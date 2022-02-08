@@ -2,6 +2,7 @@ import json
 
 from BinPackingData import *
 from BranchAndCut import BinPackingBranchAndCutSolver
+from PlacementPoints import PlacementPointStrategy
 
 def main():
     solutions = {}
@@ -13,7 +14,7 @@ def main():
     #hardInstances = [226, 232, 242, 242, 244, 245, 247, 248, 249, 261, 292, 313, 314, 332, 173, 187, 188, 191, 197, 142, 143, 145, 146, 149]
     #mediumInstance = [149, 174]
 
-    for instance in range(87, 89):
+    for instance in range(87, 500):
     #for instance in hardInstances:
         currentInstanceId = instance
         items, H, W = ReadBenchmarkData(instance)
@@ -29,7 +30,7 @@ def main():
         solverType = solver.SolverType
         isOptimalMIP = solver.IsOptimal
         
-        PlotSolution(upperBoundMIP * W, H, rectangles)
+        #PlotSolution(upperBoundMIP * W, H, rectangles)
 
         if isOptimalMIP:
             print(f'Instance {instance}: Optimal solution = {int(bestBoundMIP)} found by {solverType} (#items = {len(items)})')

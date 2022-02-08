@@ -4,27 +4,29 @@ import networkx as nx
 from networkx.algorithms.approximation import clique
 
 from Model import Item, Bin
+from PlacementPoints import PlacementPointStrategy
 
 from SymmetryBreaking import SymmetryBreaking
 
 class Preprocess:
-    def __init__(self, items, bin):
+    def __init__(self, items, bin, placementPointStrategy = PlacementPointStrategy.UnitDiscretization):
         self.Items = items
         self.ProcessedItems = []
         self.Bin = bin
 
         self.UpperBoundsBin = sys.maxsize
 
-        self.EnableNormalPatterns = True
+        self.PlacementPointStrategy = placementPointStrategy
+        #self.EnableNormalPatterns = True
 
         self.IncompatibleItems = set()
         self.RemovedItems = []
         self.FixItemToBin = []
         self.BinDomains = []
 
-        self.ItemNormalPatternsX = []
-        self.ItemNormalPatternsY = []
-        self.GlobalNormalPatternsX = []
+        self.ItemPlacementPatternsX = []
+        self.ItemPlacementPatternsY = []
+        self.GlobalPlacementPatternsX = []
 
     def DetermineConflicts(self, items, H, W):
         for i, itemI in enumerate(items):
@@ -109,22 +111,6 @@ class Preprocess:
 
         self.BinDomains = SymmetryBreaking.CreateReducedBinDomains(self.IncompatibleItems, newNumberOfItems, self.UpperBoundsBin, self.FixItemToBin)
 
-        if self.EnableNormalPatterns:
-            self.ItemNormalPatternsX, self.ItemNormalPatternsY, self.GlobalNormalPatternsX = SymmetryBreaking.CreateBinDependentNormalPatterns(self.IncompatibleItems, self.FixItemToBin, newItems, self.UpperBoundsBin, self.Bin.Dx, self.Bin.Dy)
+        self.ItemPlacementPatternsX, self.ItemPlacementPatternsY, self.GlobalPlacementPatternsX = SymmetryBreaking.CreateBinDependentPlacementPatterns(self.IncompatibleItems, self.FixItemToBin, newItems, self.UpperBoundsBin, self.Bin, self.PlacementPointStrategy)
 
         self.ProcessedItems = newItems
-
-        """
-        numberOfItems = len(self.Items)
-        self.UpperBoundBins = numberOfItems
-
-        self.DetermineIncompatibleItems(self.Items)
-
-        #preprocessing
-        self.fixItemToBin = SymmetryBreaking.FixIncompatibleItems(self.IncompatibleItems, numberOfItems)
-
-        #binDomains = SymmetryBreaking.CreateReducedBinDomains(incompatibleItems, n, upperBoundBins, fixItemToBin)
-
-        if self.EnableNormalPatterns:
-            self.itemNormalPatternsX, self.itemNormalPatternsY, self.globalNormalPatternsX = SymmetryBreaking.CreateBinDependentNormalPatterns(self.IncompatibleItems, self.fixItemToBin, self.Items, self.UpperBoundBins, self.Bin.Dx, self.Bin.Dy)
-        """

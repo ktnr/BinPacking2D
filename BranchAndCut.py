@@ -710,7 +710,7 @@ class BinPackingMip:
         return rectangles
 
 class BinPackingBranchAndCutSolver:
-    def __init__(self, instanceId):
+    def __init__(self, instanceId, placementPointStrategy = PlacementPointStrategy.UnitDiscretization):
         self.BinPacking = BinPackingMip()
         self.BinPacking.InstanceId = instanceId
 
@@ -721,6 +721,7 @@ class BinPackingBranchAndCutSolver:
         self.SolverType = ""
         self.CutCount = -1
 
+        self.PlacementPointStrategy = placementPointStrategy
         self.preprocess = None
 
     def RetrieveSolutionStatistics(self):
@@ -736,7 +737,7 @@ class BinPackingBranchAndCutSolver:
         self.SolverType = "B&C"
 
     def DetermineStartSolution(self, items, H, W, lowerBoundBin):
-        solverCP = BinPackingSolverCP(items, H, W, lowerBoundBin, len(items), 60, False, self.preprocess.IncompatibleItems)
+        solverCP = BinPackingSolverCP(items, H, W, lowerBoundBin, len(items), self.PlacementPointStrategy, 180, False, self.preprocess.IncompatibleItems)
         rectangles = solverCP.Solve('OneBigBin')
 
         if solverCP.LB == solverCP.UB:
@@ -749,7 +750,7 @@ class BinPackingBranchAndCutSolver:
     def Run(self, items, H, W):   
         bin = Bin(W, H)
 
-        self.preprocess = Preprocess(items, bin)
+        self.preprocess = Preprocess(items, bin, self.PlacementPointStrategy)
         self.preprocess.Run()
         newItems = self.preprocess.ProcessedItems
         numberOfItems = len(newItems)
