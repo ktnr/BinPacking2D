@@ -14,6 +14,8 @@ class Preprocess:
         self.ProcessedItems = []
         self.Bin = bin
 
+        self.IsCompleted = False
+
         self.UpperBoundsBin = sys.maxsize
 
         self.PlacementPointStrategy = placementPointStrategy
@@ -75,6 +77,9 @@ class Preprocess:
         return newItems, len(filteredItemIndices)
 
     def Run(self):
+        if self.IsCompleted:
+            return 
+
         items = sorted(self.Items, reverse=True) # TODO: build conflict graph and compute maximal clique
         items, newNumberOfItems = self.RemoveLargeItems(items, self.Bin.Dy, self.Bin.Dx)
 
@@ -114,3 +119,5 @@ class Preprocess:
         self.ItemPlacementPatternsX, self.ItemPlacementPatternsY, self.GlobalPlacementPatternsX = SymmetryBreaking.CreateBinDependentPlacementPatterns(self.IncompatibleItems, self.FixItemToBin, newItems, self.UpperBoundsBin, self.Bin, self.PlacementPointStrategy)
 
         self.ProcessedItems = newItems
+
+        self.IsCompleted = True
