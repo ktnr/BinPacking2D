@@ -181,14 +181,8 @@ class BinPackingCallback:
 
             t1 = time.time()
 
-            binPacking2D = OrthogonalPacking2D()
-            binPacking2D.AddBin(model._Bins[0]) # homoegeneous bins
-            binPacking2D.AddItems(sortedItems)
-
-            binPacking2D.CreateVariables(model._PlacementPointStrategy)
-            binPacking2D.CreateConstraints()
-
-            isFeasible = binPacking2D.Solve(model._InstanceId)
+            orthogonalPacking = OrthogonalPackingSolver(sortedItems, model._Bins[0], model._PlacementPointStrategy)
+            isFeasible = orthogonalPacking.Solve(model._InstanceId)
 
             t2 = time.time()
 
@@ -268,14 +262,8 @@ class BinPackingCallback:
 
             t1 = time.time()
 
-            binPacking2D = OrthogonalPacking2D()
-            binPacking2D.AddBin(model._Bins[b]) # homoegeneous bins
-            binPacking2D.AddItems(itemsInBin)
-
-            binPacking2D.CreateVariables(model._PlacementPointStrategy)
-            binPacking2D.CreateConstraints()
-
-            isFeasible = binPacking2D.Solve(model._InstanceId)
+            orthogonalPacking = OrthogonalPackingSolver(itemsInBin, model._Bins[b], model._PlacementPointStrategy)
+            isFeasible = orthogonalPacking.Solve(model._InstanceId)
 
             t2 = time.time()
 
@@ -457,36 +445,14 @@ class BinPackingMip:
 
             bin = self.Model._Bins[b]
 
-            binPacking2D = OrthogonalPacking2D()
-            binPacking2D.AddBin(bin) # homoegeneous bins
-            binPacking2D.AddItems(itemsInBin)
-
-            binPacking2D.CreateVariables(self.Model._PlacementPointStrategy)
-            binPacking2D.CreateConstraints()
-
-            isFeasible = binPacking2D.Solve(self.InstanceId)
+            orthogonalPacking = OrthogonalPackingSolver(itemsInBin, bin, self.Model._PlacementPointStrategy) #
+            isFeasible = orthogonalPacking.Solve(self.InstanceId)
 
             if not isFeasible:
                 raise ValueError('Packing must not be infeasible during solution extraction.')
-
-            #binPacking2D.StartX
             
-            xArray = []
-            yArray = []
-            if numberOfItems == 1:
-                xArray = [(b * bin.Dx) + 0.0]
-                yArray = [0.0]
-            else:
-                xArray = [(b * bin.Dx) + binPacking2D.Solver.Value(binPacking2D.StartX[i]) for i in range(numberOfItems)]
-                yArray = [binPacking2D.Solver.Value(binPacking2D.StartY[i]) for i in range(numberOfItems)]
-
-            """
-            w = []
-            h = []
-            for item in itemsInBin:
-                w.append(item.Dx)
-                h.append(item.Dy)
-            """
+            xArray = [(b * bin.Dx) + orthogonalPacking.PositionsX[i] for i in range(numberOfItems)]
+            yArray = [orthogonalPacking.PositionsY[i] for i in range(numberOfItems)]
 
             rectangles = ExtractDataForPlot(xArray, yArray, itemsInBin, bin.Dx, bin.Dy)
 
@@ -780,3 +746,45 @@ class BinPackingBranchAndCutSolver:
         rectangles = self.BinPacking.Solve()
 
         return rectangles
+
+def main():
+    solutions = {}
+    # Single bin 2D-BPP CP model takes ages to prove feasibility/infeasibility on instances: 173, 262, 292, 297, 298, 317
+    # Meet in the middle produces erroneous 1D KP instances for instances 11
+    # Postsolve error: 51, 45, 125/126, 31, 26 or 27, 311
+    # Double count: 21, 22, 26, 27, 31, 32
+    # Negative lifting coefficient: 120, 123, 
+    #hardInstances = [226, 232, 242, 242, 244, 245, 247, 248, 249, 261, 292, 313, 314, 332, 173, 187, 188, 191, 197, 142, 143, 145, 146, 149]
+    #mediumInstance = [149, 174]
+
+    for instance in range(87, 500):
+    #for instance in hardInstances:
+        currentInstanceId = instance
+        items, H, W = ReadBenchmarkData(instance)
+        
+        solver = BinPackingBranchAndCutSolver(instance)
+        rectangles = solver.Run(items, H, W)
+
+        solver.RetrieveSolutionStatistics()
+
+        # TODO: introduce solution statistics struct
+        bestBoundMIP = solver.LB
+        upperBoundMIP = solver.UB
+        solverType = solver.SolverType
+        isOptimalMIP = solver.IsOptimal
+        
+        PlotSolution(upperBoundMIP * W, H, rectangles)
+
+        if isOptimalMIP:
+            print(f'Instance {instance}: Optimal solution = {int(bestBoundMIP)} found by {solverType} (#items = {len(items)})')
+        else:
+            print(f'Instance {instance}: No optimal solution found, [lb, ub] = [{bestBoundMIP}, {upperBoundMIP}] (#items = {len(items)})')
+    
+        solutions[instance] = {'LB': bestBoundMIP, 'UB': upperBoundMIP, 'Solver': solverType}
+
+    solutionsJson = json.dumps(solutions, indent = 4)
+    with open("Solutions.json", "w") as outfile:
+        outfile.write(solutionsJson)
+
+if __name__ == "__main__":
+    main()

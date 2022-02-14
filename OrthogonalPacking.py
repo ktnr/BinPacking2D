@@ -1,11 +1,51 @@
 from ortools.sat.python import cp_model
 from ortools.sat.python.cp_model import Domain
 
+from Preprocess import Preprocess
 from PlacementPoints import *
 from SymmetryBreaking import *
+
 from HelperIO import Converter
 
 import math
+
+class OrthogonalPackingSolver:
+    def __init__(
+        self, 
+        items, 
+        bin,
+        placementPointStrategy = PlacementPointStrategy.UnitDiscretization, 
+        timeLimit = 0, 
+        enableLogging = False):
+
+        self.items = items
+        self.bin = bin
+        self.placementPointStrategy = placementPointStrategy
+        self.timeLimit = timeLimit
+        self.enableLogging = enableLogging
+
+        self.PositionsX = []
+        self.PositionsY = []
+    
+    def Solve(self, instanceName = '9999', modelType = 'BaseModel'):
+        if modelType == 'BaseModel':
+            model = OrthogonalPacking2D(self.items, self.bin, self.placementPointStrategy)
+        elif modelType == 'BranchAndCut':
+            model = OrthogonalPackingRelaxed2D(self.items, self.bin, self.placementPointStrategy)
+        else:
+            raise ValueError("Invalid bin packing model type.")
+        
+        isFeasible = model.Solve(instanceName)
+        
+        numberOfItems = len(self.items)
+        if numberOfItems == 1:
+            self.PositionsX = [0.0]
+            self.PositionsY = [0.0]
+        else:
+            self.PositionsX = model.StartPositionsX #[model.Solver.Value(model.StartX[i]) for i in range(numberOfItems)]
+            self.PositionsY = model.StartPositionsY
+
+        return isFeasible
 
 class Knapsack2D:
     def __init__(self):
@@ -108,11 +148,154 @@ class Knapsack2D:
 
         return solver.StatusName(), solver.BestObjectiveBound(), solver.ObjectiveValue()
 
-# https://www.xiang.dev/cp-sat/
-class OrthogonalPacking2D:
-    def __init__(self):
+class OrthogonalPackingRelaxed2D:
+    def __init__(self, items, bin, placementPointStrategy):
         self.Model = cp_model.CpModel()
         self.Solver = None
+
+        self.Items = items
+        self.Bin = bin
+
+        self.placementPointStrategy = placementPointStrategy
+
+        self.AbortCallback = None
+
+        self.StartX = []
+        self.IntervalX = []
+
+        self.StartPositionsX = []
+        self.StartPositionsY = []
+
+    class OrthogonalPackingFixedPositionCallback(cp_model.CpSolverSolutionCallback):
+        def __init__(self, items, bin, placementPointStrategy, startVariablesX, startPositionsY, solver):
+            cp_model.CpSolverSolutionCallback.__init__(self)
+            self.items = items
+            self.bin = bin
+            self.placementPointStrategy = placementPointStrategy
+            self.startVariablesX = startVariablesX
+            self.StartPositionsY = startPositionsY
+            self.solver = solver
+
+        def on_solution_callback(self):
+            if len(self.startVariablesX) != len(self.items):
+                raise ValueError("Inconsistent variable count.")
+
+            xPositions =  [self.Value(variable) for variable in self.startVariablesX]
+
+            orthogonalPacking = OrthogonalPacking2D(self.items, self.bin, self.placementPointStrategy, xPositions)
+            isFeasible = orthogonalPacking.Solve(0)
+
+            if isFeasible:
+                self.StartPositionsY = [orthogonalPacking.Solver.Value(variable) for variable in orthogonalPacking.StartY]
+                self.StopSearch()
+    
+    def CreateVariables(self):
+        binDx = self.Bin.Dx
+
+        reducedItemIndex = SymmetryBreaking.DetermineMaximumItemIndexDx(self.Items)
+
+        reducedItem = self.Items[reducedItemIndex]
+        reducedDomainThresholdX = SymmetryBreaking.ReducedDomainX(binDx, reducedItem)
+
+        for i, item in enumerate(self.Items):
+        
+            filteredItems = [itemJ for j, itemJ in enumerate(self.Items) if i != j]
+
+            placementPointsX, placementPointsY = PlacementPointGenerator.CreatePlacementPatterns(self.placementPointStrategy, item, filteredItems, self.Bin)
+
+            if i == reducedItemIndex:
+                placementPointsStartX = [p for p in placementPointsX if p + item.Dx <= binDx and p <= reducedDomainThresholdX]
+            else:
+                placementPointsStartX = [p for p in placementPointsX if p + item.Dx <= binDx] # unnecessary, is satisfied by construction
+
+            x1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsStartX), f'x1.{i}')
+
+            self.StartX.append(x1)
+
+            intervalX = self.Model.NewFixedSizeIntervalVar(x1, item.Dx, f'xI{i}')
+
+            self.IntervalX.append(intervalX)
+    
+    def CreateConstraints(self):
+        self.CreateCumulativeConstraints()
+
+    def CreateCumulativeConstraints(self):
+        demandsY = [item.Dy for item in self.Items]
+
+        self.Model.AddCumulative(self.IntervalX, demandsY, self.Bin.Dy)
+    
+    def ExtractSolution(self):
+        self.StartPositionsX = [self.Solver.Value(variable) for variable in self.StartX]
+        self.StartPositionsY = self.AbortCallback.StartPositionsY
+
+    def Solve(self, instanceId):
+        if len(self.Items) == 1:
+            if self.Items[0].Dx <= self.Bin.Dx and self.Items[0].Dy <= self.Bin.Dy:
+                return True
+            else:
+                return False
+
+        # https://github.com/google/or-tools/blob/2cb85b4eead4c38e1c54b48044f92087cf165bce/ortools/sat/sat_parameters.proto
+        self.Solver = cp_model.CpSolver()
+        self.Solver.parameters.log_search_progress = False 
+        self.Solver.parameters.num_search_workers = 1
+        self.Solver.parameters.enumerate_all_solutions = True
+        #self.Solver.parameters.use_cumulative_in_no_overlap_2d = True
+        #self.Solver.parameters.use_disjunctive_constraint_in_cumulative_constraint = True
+        #self.Solver.parameters.use_timetable_edge_finding_in_cumulative_constraint = True
+        #self.Solver.parameters.use_overload_checker_in_cumulative_constraint = True
+        #self.Solver.parameters.max_time_in_seconds = 300
+        #self.Solver.parameters.optimize_with_lb_tree_search = True;
+        #self.Solver.parameters.binary_search_num_conflicts  = 99;
+        #self.Solver.parameters.stop_after_first_solution = True;
+        #self.Solver.parameters.symmetry_level = 1;
+        #self.Solver.parameters.cp_model_presolve = False
+
+
+        self.CreateVariables()
+        self.CreateConstraints()
+
+        """
+        numberOfItems = len(self.Items)
+        with open(f"Model_{numberOfItems}.txt","a") as f:
+            f.write(str(self.Model.Proto()))
+        """
+
+        self.AbortCallback = self.OrthogonalPackingFixedPositionCallback(self.Items, self.Bin, self.placementPointStrategy, self.StartX, self.StartPositionsY, self.Solver)
+        status = self.Solver.Solve(self.Model, self.AbortCallback)
+        #status = self.Solver.StatusName()
+
+        if status == cp_model.FEASIBLE or status == cp_model.OPTIMAL:
+            self.ExtractSolution()
+            return True
+        elif status == cp_model.INFEASIBLE:
+            return False
+        elif status == cp_model.MODEL_INVALID:
+            raise ValueError("Model invalid")
+        elif status == cp_model.UNKNOWN:
+            #Converter.ConvertFromSubproblem(self.Items, self.Bin, self.Solver.parameters.max_time_in_seconds, instanceId)
+            #return False
+            raise ValueError("Unkown status type")
+        else:
+            raise ValueError("Invalid status type")
+
+        print(status)
+        print(self.Solver.StatusName())
+
+# https://www.xiang.dev/cp-sat/
+class OrthogonalPacking2D:
+    def __init__(self, items, bin, placementPointStrategy, positionsX = []):
+        self.Model = cp_model.CpModel()
+        self.Solver = None
+
+        self.Items = items
+        self.Bin = bin
+
+        self.placementPointStrategy = placementPointStrategy
+        self.fixedPositionsX = positionsX
+
+        self.StartPositionsX = []
+        self.StartPositionsY = []
 
         self.StartX = []
         self.EndX = []
@@ -121,14 +304,8 @@ class OrthogonalPacking2D:
         self.StartY = []
         self.EndY = []
         self.IntervalY = []
-    
-    def AddItems(self, items):
-        self.Items = items
 
-    def AddBin(self, bin):
-        self.Bin = bin
-
-    def CreateVariables(self, placementPointStrategy):
+    def CreateVariables(self):
         binDx = self.Bin.Dx
         binDy = self.Bin.Dy
 
@@ -143,7 +320,7 @@ class OrthogonalPacking2D:
         
             filteredItems = [itemJ for j, itemJ in enumerate(self.Items) if i != j]
 
-            placementPointsX, placementPointsY = PlacementPointGenerator.CreatePlacementPatterns(placementPointStrategy, item, filteredItems, self.Bin)
+            placementPointsX, placementPointsY = PlacementPointGenerator.CreatePlacementPatterns(self.placementPointStrategy, item, filteredItems, self.Bin)
 
             if i == reducedItemIndex:
                 placementPointsStartX = [p for p in placementPointsX if p + item.Dx <= binDx and p <= reducedDomainThresholdX]
@@ -176,6 +353,11 @@ class OrthogonalPacking2D:
             self.IntervalX.append(intervalX)
             self.IntervalY.append(intervalY)
 
+    def FixVariablesX(self):
+        for i, placement in enumerate(self.fixedPositionsX):
+            #self.StartX[i].FixVariable(placement) # will be available in future releases
+            self.Model.Add(self.StartX[i] == placement)
+
     def CreateConstraints(self):
         self.CreateNoOverlapConstraints()
         self.CreateCumulativeConstraints()
@@ -189,6 +371,10 @@ class OrthogonalPacking2D:
 
         self.Model.AddCumulative(self.IntervalY, demandsX, self.Bin.Dx)
         self.Model.AddCumulative(self.IntervalX, demandsY, self.Bin.Dy)
+
+    def ExtractSolution(self):
+        self.StartPositionsX = [self.Solver.Value(variable) for variable in self.StartX]
+        self.StartPositionsY = [self.Solver.Value(variable) for variable in self.StartY]
 
     def Solve(self, instanceId):
         if len(self.Items) == 1:
@@ -212,6 +398,10 @@ class OrthogonalPacking2D:
         #self.Solver.parameters.symmetry_level = 1;
         #self.Solver.parameters.cp_model_presolve = False
 
+        self.CreateVariables()
+        self.CreateConstraints()
+        self.FixVariablesX()
+
         """
         numberOfItems = len(self.Items)
         with open(f"Model_{numberOfItems}.txt","a") as f:
@@ -221,6 +411,7 @@ class OrthogonalPacking2D:
         status = self.Solver.Solve(self.Model)
 
         if status == cp_model.FEASIBLE or status == cp_model.OPTIMAL:
+            self.ExtractSolution()
             return True
         elif status == cp_model.INFEASIBLE:
             return False
