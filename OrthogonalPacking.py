@@ -102,7 +102,6 @@ class Knapsack2D:
                 xb1.append(d)
                 xb2.append(e)
 
-
         # interval variables
         xival = [model.NewIntervalVar(xb1[i], items[i].Dx, xb2[i],f'xival{i}') for i in range(n)]
         yival = [model.NewIntervalVar(y1[i], items[i].Dy, y2[i],f'yival{i}') for i in range(n)]
@@ -148,8 +147,8 @@ class Knapsack2D:
 
         return solver.StatusName(), solver.BestObjectiveBound(), solver.ObjectiveValue()
 
-class OrthogonalPackingRelaxed2D:
-    def __init__(self, items, bin, placementPointStrategy):
+class OrthogonalPackingBase2D:
+    def __init__(self, items, bin, placementPointStrategy, positionsX = []):
         self.Model = cp_model.CpModel()
         self.Solver = None
 
@@ -157,14 +156,65 @@ class OrthogonalPackingRelaxed2D:
         self.Bin = bin
 
         self.placementPointStrategy = placementPointStrategy
-
-        self.AbortCallback = None
-
-        self.StartX = []
-        self.IntervalX = []
+        self.fixedPositionsX = positionsX
 
         self.StartPositionsX = []
         self.StartPositionsY = []
+
+        self.StartX = []
+        self.EndX = []
+        self.IntervalX = []
+
+        self.StartY = []
+        self.EndY = []
+        self.IntervalY = []
+
+    def Solve(self, instanceId):
+        if len(self.Items) == 1:
+            if self.Items[0].Dx <= self.Bin.Dx and self.Items[0].Dy <= self.Bin.Dy:
+                return True
+            else:
+                return False
+
+        # https://github.com/google/or-tools/blob/2cb85b4eead4c38e1c54b48044f92087cf165bce/ortools/sat/sat_parameters.proto
+        self.Solver = cp_model.CpSolver()
+        self.SetParameters()
+
+        self.CreateVariables()
+        self.CreateConstraints()
+        self.FixVariablesX()
+
+        """
+        numberOfItems = len(self.Items)
+        with open(f"Model_{numberOfItems}.txt","a") as f:
+            f.write(str(self.Model.Proto()))
+        """
+
+        #status = self.Solver.Solve(self.Model)
+        status = self.SolveModel()
+
+        if status == cp_model.FEASIBLE or status == cp_model.OPTIMAL:
+            self.ExtractSolution()
+            return True
+        elif status == cp_model.INFEASIBLE:
+            return False
+        elif status == cp_model.MODEL_INVALID:
+            raise ValueError("Model invalid")
+        elif status == cp_model.UNKNOWN:
+            #Converter.ConvertFromSubproblem(self.Items, self.Bin, self.Solver.parameters.max_time_in_seconds, instanceId)
+            #return False
+            raise ValueError("Unkown status type")
+        else:
+            raise ValueError("Invalid status type")
+
+        print(status)
+        print(self.Solver.StatusName())
+
+class OrthogonalPackingRelaxed2D(OrthogonalPackingBase2D):
+    def __init__(self, items, bin, placementPointStrategy):
+        super().__init__(items, bin, placementPointStrategy)
+
+        self.AbortCallback = None
 
     class OrthogonalPackingFixedPositionCallback(cp_model.CpSolverSolutionCallback):
         def __init__(self, items, bin, placementPointStrategy, startVariablesX, startPositionsY, solver):
@@ -228,15 +278,10 @@ class OrthogonalPackingRelaxed2D:
         self.StartPositionsX = [self.Solver.Value(variable) for variable in self.StartX]
         self.StartPositionsY = self.AbortCallback.StartPositionsY
 
-    def Solve(self, instanceId):
-        if len(self.Items) == 1:
-            if self.Items[0].Dx <= self.Bin.Dx and self.Items[0].Dy <= self.Bin.Dy:
-                return True
-            else:
-                return False
+    def FixVariablesX(self):
+        return
 
-        # https://github.com/google/or-tools/blob/2cb85b4eead4c38e1c54b48044f92087cf165bce/ortools/sat/sat_parameters.proto
-        self.Solver = cp_model.CpSolver()
+    def SetParameters(self):
         self.Solver.parameters.log_search_progress = False 
         self.Solver.parameters.num_search_workers = 1
         self.Solver.parameters.enumerate_all_solutions = True
@@ -251,59 +296,17 @@ class OrthogonalPackingRelaxed2D:
         #self.Solver.parameters.symmetry_level = 1;
         #self.Solver.parameters.cp_model_presolve = False
 
-
-        self.CreateVariables()
-        self.CreateConstraints()
-
-        """
-        numberOfItems = len(self.Items)
-        with open(f"Model_{numberOfItems}.txt","a") as f:
-            f.write(str(self.Model.Proto()))
-        """
-
+    def SolveModel(self):
         self.AbortCallback = self.OrthogonalPackingFixedPositionCallback(self.Items, self.Bin, self.placementPointStrategy, self.StartX, self.StartPositionsY, self.Solver)
         status = self.Solver.Solve(self.Model, self.AbortCallback)
         #status = self.Solver.StatusName()
 
-        if status == cp_model.FEASIBLE or status == cp_model.OPTIMAL:
-            self.ExtractSolution()
-            return True
-        elif status == cp_model.INFEASIBLE:
-            return False
-        elif status == cp_model.MODEL_INVALID:
-            raise ValueError("Model invalid")
-        elif status == cp_model.UNKNOWN:
-            #Converter.ConvertFromSubproblem(self.Items, self.Bin, self.Solver.parameters.max_time_in_seconds, instanceId)
-            #return False
-            raise ValueError("Unkown status type")
-        else:
-            raise ValueError("Invalid status type")
-
-        print(status)
-        print(self.Solver.StatusName())
+        return status
 
 # https://www.xiang.dev/cp-sat/
-class OrthogonalPacking2D:
+class OrthogonalPacking2D(OrthogonalPackingBase2D):
     def __init__(self, items, bin, placementPointStrategy, positionsX = []):
-        self.Model = cp_model.CpModel()
-        self.Solver = None
-
-        self.Items = items
-        self.Bin = bin
-
-        self.placementPointStrategy = placementPointStrategy
-        self.fixedPositionsX = positionsX
-
-        self.StartPositionsX = []
-        self.StartPositionsY = []
-
-        self.StartX = []
-        self.EndX = []
-        self.IntervalX = []
-
-        self.StartY = []
-        self.EndY = []
-        self.IntervalY = []
+        super().__init__(items, bin, placementPointStrategy, positionsX)
 
     def CreateVariables(self):
         binDx = self.Bin.Dx
@@ -376,15 +379,7 @@ class OrthogonalPacking2D:
         self.StartPositionsX = [self.Solver.Value(variable) for variable in self.StartX]
         self.StartPositionsY = [self.Solver.Value(variable) for variable in self.StartY]
 
-    def Solve(self, instanceId):
-        if len(self.Items) == 1:
-            if self.Items[0].Dx <= self.Bin.Dx and self.Items[0].Dy <= self.Bin.Dy:
-                return True
-            else:
-                return False
-
-        # https://github.com/google/or-tools/blob/2cb85b4eead4c38e1c54b48044f92087cf165bce/ortools/sat/sat_parameters.proto
-        self.Solver = cp_model.CpSolver()
+    def SetParameters(self):
         self.Solver.parameters.log_search_progress = False 
         self.Solver.parameters.num_search_workers = 8
         #self.Solver.parameters.use_cumulative_in_no_overlap_2d = True
@@ -398,31 +393,6 @@ class OrthogonalPacking2D:
         #self.Solver.parameters.symmetry_level = 1;
         #self.Solver.parameters.cp_model_presolve = False
 
-        self.CreateVariables()
-        self.CreateConstraints()
-        self.FixVariablesX()
+    def SolveModel(self):
+        return self.Solver.Solve(self.Model)
 
-        """
-        numberOfItems = len(self.Items)
-        with open(f"Model_{numberOfItems}.txt","a") as f:
-            f.write(str(self.Model.Proto()))
-        """
-
-        status = self.Solver.Solve(self.Model)
-
-        if status == cp_model.FEASIBLE or status == cp_model.OPTIMAL:
-            self.ExtractSolution()
-            return True
-        elif status == cp_model.INFEASIBLE:
-            return False
-        elif status == cp_model.MODEL_INVALID:
-            raise ValueError("Model invalid")
-        elif status == cp_model.UNKNOWN:
-            #Converter.ConvertFromSubproblem(self.Items, self.Bin, self.Solver.parameters.max_time_in_seconds, instanceId)
-            #return False
-            raise ValueError("Unkown status type")
-        else:
-            raise ValueError("Invalid status type")
-
-        print(status)
-        print(self.Solver.StatusName())

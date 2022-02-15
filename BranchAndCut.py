@@ -426,7 +426,7 @@ class BinPackingMip:
         self.Model._BinPackingTimeStrengthening = 0.0
         self.Model._BinPackingTimeSeparation = 0.0
         self.Model._EnableLifting = False
-        self.Model._EnableCutStrengthening = True
+        self.Model._EnableCutStrengthening = False
         self.Model._InfeasibleSuproblemCutThreshold = 1
         
         self.Model._EnablePreprocessLifting = False
