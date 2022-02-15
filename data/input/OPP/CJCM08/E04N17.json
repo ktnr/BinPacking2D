@@ -1,0 +1,96 @@
+{
+    "Name": "E04N17",
+    "Objects": [
+        {
+            "Length": 20,
+            "Height": 20
+        }
+    ],
+    "Items": [
+        {
+            "Length": 2,
+            "Height": 5,
+            "Demand": 1
+        },
+        {
+            "Length": 8,
+            "Height": 4,
+            "Demand": 1
+        },
+        {
+            "Length": 3,
+            "Height": 20,
+            "Demand": 1
+        },
+        {
+            "Length": 1,
+            "Height": 20,
+            "Demand": 1
+        },
+        {
+            "Length": 11,
+            "Height": 5,
+            "Demand": 1
+        },
+        {
+            "Length": 3,
+            "Height": 17,
+            "Demand": 1
+        },
+        {
+            "Length": 5,
+            "Height": 10,
+            "Demand": 1
+        },
+        {
+            "Length": 1,
+            "Height": 14,
+            "Demand": 1
+        },
+        {
+            "Length": 2,
+            "Height": 14,
+            "Demand": 1
+        },
+        {
+            "Length": 1,
+            "Height": 2,
+            "Demand": 1
+        },
+        {
+            "Length": 1,
+            "Height": 4,
+            "Demand": 1
+        },
+        {
+            "Length": 9,
+            "Height": 4,
+            "Demand": 1
+        },
+        {
+            "Length": 1,
+            "Height": 3,
+            "Demand": 1
+        },
+        {
+            "Length": 3,
+            "Height": 2,
+            "Demand": 1
+        },
+        {
+            "Length": 1,
+            "Height": 3,
+            "Demand": 1
+        },
+        {
+            "Length": 1,
+            "Height": 2,
+            "Demand": 1
+        },
+        {
+            "Length": 1,
+            "Height": 12,
+            "Demand": 1
+        }
+    ]
+}

@@ -6,6 +6,8 @@ from matplotlib.patches import Rectangle
 
 from Model import Item, Bin
 
+import os
+
 """ from https://yetanothermathprogrammingconsultant.blogspot.com/2021/02/2d-bin-packing-with-google-or-tools-cp.html """
 def ReadExampleData():
     data = {'bin':{'h':60,'w':40},
@@ -33,10 +35,11 @@ def ReadExampleData():
 
     return h, w, H, W, m
 
-def ReadBenchmarkData(id):
+def ReadBenchmarkData(path, instanceName):
     data = None
-    with open(f'data/CLASS/{id}.json', 'r') as myfile:
-        data = myfile.read()
+    filePath = os.path.join(path, instanceName)
+    with open(filePath, 'r') as file:
+        data = file.read()
 
     # parse file
     obj = json.loads(data)

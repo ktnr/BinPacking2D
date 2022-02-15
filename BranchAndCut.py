@@ -703,7 +703,7 @@ class BinPackingBranchAndCutSolver:
         self.SolverType = "B&C"
 
     def DetermineStartSolution(self, items, H, W, lowerBoundBin):
-        solverCP = BinPackingSolverCP(items, H, W, lowerBoundBin, len(items), self.PlacementPointStrategy, 180, False, self.preprocess)
+        solverCP = BinPackingSolverCP(items, H, W, lowerBoundBin, len(items), self.PlacementPointStrategy, 30, False, self.preprocess)
         rectangles = solverCP.Solve('OneBigBin')
 
         if solverCP.LB == solverCP.UB:
@@ -757,10 +757,11 @@ def main():
     #hardInstances = [226, 232, 242, 242, 244, 245, 247, 248, 249, 261, 292, 313, 314, 332, 173, 187, 188, 191, 197, 142, 143, 145, 146, 149]
     #mediumInstance = [149, 174]
 
+    path = 'data/input/BPP/CLASS'
     for instance in range(87, 500):
     #for instance in hardInstances:
         currentInstanceId = instance
-        items, H, W = ReadBenchmarkData(instance)
+        items, H, W = ReadBenchmarkData(path, str(instance) + '.json')
         
         solver = BinPackingBranchAndCutSolver(instance)
         rectangles = solver.Run(items, H, W)
