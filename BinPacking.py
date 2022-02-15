@@ -358,7 +358,10 @@ class PairwiseAssignmentModel(BinPackBaseModel):
         self.model.Minimize(self.binCountVariables)
 
 def main():
-    items, H, W = ReadBenchmarkData(9)
+    path = 'data/input/BPP/CLASS'
+    instanceId = 9
+    fileName = path 
+    items, H, W = ReadBenchmarkData(path, str(instanceId) + '.json')
 
     solver = BinPackingSolverCP(items, H, W, 1, len(items), PlacementPointStrategy.UnitDiscretization, 16*3600)
     rectangles = solver.Solve('PairwiseAssignment')
