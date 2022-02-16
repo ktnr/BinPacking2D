@@ -1,2 +1,8 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
 /Solutions.json
+src/Solutions.json
 /__pycache__

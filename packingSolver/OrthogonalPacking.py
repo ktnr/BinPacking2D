@@ -10,6 +10,7 @@ from BinPackingData import *
 from HelperIO import Converter
 
 import math
+import re
 
 class OrthogonalPackingSolver:
     def __init__(
@@ -382,7 +383,7 @@ class OrthogonalPacking2D(OrthogonalPackingBase2D):
         self.StartPositionsY = [self.Solver.Value(variable) for variable in self.StartY]
 
     def SetParameters(self):
-        self.Solver.parameters.log_search_progress = True 
+        self.Solver.parameters.log_search_progress = False 
         self.Solver.parameters.num_search_workers = 8
         #self.Solver.parameters.use_cumulative_in_no_overlap_2d = True
         #self.Solver.parameters.use_disjunctive_constraint_in_cumulative_constraint = True
@@ -399,28 +400,30 @@ class OrthogonalPacking2D(OrthogonalPackingBase2D):
         return self.Solver.Solve(self.Model)
 
 
-def main():
-    path = 'data/input/OPP/InterestingInstances'
+def main(instanceFilter = [r'.*']):
+    # https://stackoverflow.com/a/3040797
+    combinedRegex = "(" + ")|(".join(instanceFilter) + ")"
+    path = 'data/input/OPP/CJCM08'
     for root, dirs, files in os.walk(path):
-        for filename in files:
-            if '.json' not in filename:
+        for fileName in files:
+            if '.json' not in fileName:
+                continue
+
+            if len(instanceFilter) > 0 and not re.match(combinedRegex, fileName):
                 continue
             
-            items, H, W = ReadBenchmarkData(path, filename)
+            items, H, W = ReadBenchmarkData(path, fileName)
             bin = Bin(W, H)
 
             solver = OrthogonalPackingSolver(items, bin, PlacementPointStrategy.NormalPatterns)
             isFeasible = solver.Solve()
 
-            rectangles = ExtractDataForPlot(solver.PositionsX, solver.PositionsY, items, W, H)
-            
-            PlotSolution(W, H, rectangles)
-
             if isFeasible:
-                print(f'{filename} is feasible (#items = {len(items)})')
+                rectangles = ExtractDataForPlot(solver.PositionsX, solver.PositionsY, items, W, H)
+                PlotSolution(W, H, rectangles)
+                print(f'{fileName} is feasible (#items = {len(items)})')
             else:
-                print(f'{filename} is infeasible (#items = {len(items)})')
-    
+                print(f'{fileName} is infeasible (#items = {len(items)})')
 
 if __name__ == "__main__":
     main()
