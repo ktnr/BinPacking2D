@@ -6,7 +6,7 @@ import math
 import pandas
 import numpy
 
-from Preprocess import Preprocess
+from Preprocess import PreprocessBinPacking
 from BinPackingData import *
 
 from Model import *
@@ -50,7 +50,7 @@ class BinPackingSolverCP:
         bin = Bin(self.binDx, self.binDy)
 
         if self.preprocess == None:
-            self.preprocess = Preprocess(self.items, bin, self.placementPointStrategy)
+            self.preprocess = PreprocessBinPacking(self.items, bin, self.placementPointStrategy)
             self.preprocess.Run()
 
         if modelType == 'OneBigBin':
@@ -93,7 +93,7 @@ class BinPackBaseModel:
         self.lowerBoundAreaBin = 0.0
 
         if preprocess == None:
-            self.preprocess = Preprocess(items, bin, placementPointStrategy)
+            self.preprocess = PreprocessBinPacking(items, bin, placementPointStrategy)
         else:
             self.preprocess = preprocess
 

@@ -182,7 +182,7 @@ class BinPackingCallback:
             t1 = time.time()
 
             orthogonalPacking = OrthogonalPackingSolver(sortedItems, model._Bins[0], model._PlacementPointStrategy)
-            isFeasible = orthogonalPacking.Solve(model._InstanceId)
+            isFeasible = orthogonalPacking.Solve(model._EnableSubproblemPreprocess, model._InstanceId)
 
             t2 = time.time()
 
@@ -263,7 +263,7 @@ class BinPackingCallback:
             t1 = time.time()
 
             orthogonalPacking = OrthogonalPackingSolver(itemsInBin, model._Bins[b], model._PlacementPointStrategy)
-            isFeasible = orthogonalPacking.Solve(model._InstanceId)
+            isFeasible = orthogonalPacking.Solve(model._EnableSubproblemPreprocess, model._InstanceId)
 
             t2 = time.time()
 
@@ -428,6 +428,7 @@ class BinPackingMip:
         self.Model._EnableLifting = False
         self.Model._EnableCutStrengthening = False
         self.Model._InfeasibleSuproblemCutThreshold = 1
+        self.Model._EnableSubproblemPreprocess = False
         
         self.Model._EnablePreprocessLifting = False
         self.Model._PlacementPointStrategy = PlacementPointStrategy.NormalPatterns
@@ -446,7 +447,7 @@ class BinPackingMip:
             bin = self.Model._Bins[b]
 
             orthogonalPacking = OrthogonalPackingSolver(itemsInBin, bin, self.Model._PlacementPointStrategy) #
-            isFeasible = orthogonalPacking.Solve(self.InstanceId)
+            isFeasible = orthogonalPacking.Solve(self._EnableSubproblemPreprocess, self.InstanceId)
 
             if not isFeasible:
                 raise ValueError('Packing must not be infeasible during solution extraction.')
@@ -716,7 +717,7 @@ class BinPackingBranchAndCutSolver:
     def Run(self, items, H, W):   
         bin = Bin(W, H)
 
-        self.preprocess = Preprocess(items, bin, self.PlacementPointStrategy)
+        self.preprocess = PreprocessBinPacking(items, bin, self.PlacementPointStrategy)
         self.preprocess.Run()
         newItems = self.preprocess.ProcessedItems
         numberOfItems = len(newItems)

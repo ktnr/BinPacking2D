@@ -1,4 +1,7 @@
+from re import A
 import sys
+from typing import ItemsView
+import math
 
 import networkx as nx
 from networkx.algorithms.approximation import clique
@@ -6,9 +9,150 @@ from networkx.algorithms.approximation import clique
 from Model import Item, Bin
 from PlacementPoints import PlacementPointStrategy
 
+from OrthogonalPacking import OrthogonalPackingSolver
 from SymmetryBreaking import SymmetryBreaking
 
-class Preprocess:
+""" 
+Implements the reduction procedures from section 3 in 
+Clautiaux, F., Carlier, J., & Moukrim, A. (2007). A new exact method for the two-dimensional orthogonal packing problem. 
+European Journal of Operational Research, 183(3), 1196-1211. 
+"""
+class PreprocessOrthogonalPacking:
+    def __init__(self, items, bin):
+        self.Items = items
+        self.Bin = bin
+        self.PreprocessedItems = items
+        self.PreprocessBin = bin
+
+    def Run(self):
+        newItems = list(self.Items)
+        newBin = Bin(self.Bin.Dx, self.Bin.Dy)
+
+        self.RemoveLargeItems(newItems, newBin)
+        self.FilterFrameConfiguration(newItems, newBin)
+        self.EnlargeItemsByOrthogonalPacking(newItems, newBin)
+
+        print(f"Preprocess removed {len(self.Items) - len(newItems)} items and reduced container area by {self.Bin.Dx * self.Bin.Dy - newBin.Dx * newBin.Dy}.")
+
+        self.PreprocessedItems = newItems
+        self.PreprocessBin = newBin
+
+    def RemoveLargeItems(self, items, bin):
+        itemRemoved = True
+        while itemRemoved:
+            itemRemoved = False
+            itemsToRemove = []
+            for i, item in enumerate(items):
+                if item.Dx == bin.Dx:
+                    bin.Dy -= item.Dy
+
+                    itemsToRemove.append(item)
+                    itemRemoved = True
+
+                    break
+
+                if item.Dy == bin.Dy:
+                    bin.Dx -= item.Dx
+
+                    itemsToRemove.append(item)
+                    itemRemoved = True
+
+                    break
+
+            for item in itemsToRemove:
+                items.remove(item)
+
+    def FilterFrameConfiguration(self, items, bin):
+        for i, itemI in enumerate(items):
+            for j, itemJ in enumerate(items):
+                if j == i:
+                    continue
+
+                for k, itemK in enumerate(items):
+                    if k == j or k == i:
+                        continue
+
+                    for l, itemL in enumerate(items):
+                        if l == k or l == j or l == i:
+                            continue
+
+                        if (itemI.Dx + itemL.Dx == itemJ.Dx + itemK.Dx and
+                            itemI.Dx + itemL.Dx == bin.Dx and
+                            itemI.Dy + itemK.Dy == itemJ.Dy + itemL.Dy and
+                            itemI.Dy + itemK.Dy == bin.Dy):
+                            bin.Dx = bin.Dx - itemI.Dx - itemJ.Dx
+                            bin.Dy = bin.Dy - itemK.Dy - itemL.Dy
+
+                            itemsToRemove = set(itemI, itemJ, itemK, itemL)
+
+                            for item in itemsToRemove:
+                                items.remove(item)
+
+                            return
+
+    def EnlargeItemsByOrthogonalPacking(self, items, bin):
+        feasibleThresholdToItemCount = {}
+        largestItemThreshold = -1
+        largestItemCount = 0
+
+        for p in range(1, math.floor(bin.Dy / 2.0) + 1):
+            
+            largeItemSubset = []
+            smallItemSubset = []
+            itemSubset = []
+
+            largeItemDx = 0
+            largestSmallItemDx = 0
+            
+            for i, item in enumerate(items):
+                if item.Dy >= bin.Dy - p:
+                    largeItemDx += item.Dx
+
+                    itemSubset.append(item)
+                    largeItemSubset.append(item)
+                    continue
+
+                if item.Dy <= p:
+                    largestSmallItemDx = max(largestSmallItemDx, item.Dx)
+
+                    itemSubset.append(item)
+                    smallItemSubset.append(item)
+                    continue
+            
+            if len(largeItemSubset) == 0 or len(smallItemSubset) == 0 or len(itemSubset) == 0 or largestSmallItemDx > largeItemDx:
+                continue
+
+            reducedBin = Bin(largeItemDx, bin.Dy)
+            
+            print(f"Preprocess OPP call with {len(itemSubset)} / {len(items)}")
+
+            orthogonalPackingSolver = OrthogonalPackingSolver(itemSubset, reducedBin)
+            isFeasible = orthogonalPackingSolver.Solve(False)
+            
+            if isFeasible:
+                if len(itemSubset) > len(largestItemCount):
+                    largestItemCount = len(itemSubset)
+                    largestItemThreshold = p
+
+                    feasibleThresholdToItemCount[p] = itemSubset
+
+        if largestItemThreshold == -1:
+            return
+
+        maximalItemSet = feasibleThresholdToItemCount[largestItemThreshold]
+        itemsToRemove = []
+
+        reducedBinDx = 0
+        for item in maximalItemSet:
+            itemsToRemove.append(item)
+            reducedBinDx += item.Dx
+
+        bin.Dx -= reducedBinDx
+
+        for item in itemsToRemove:
+            items.remove(item)
+
+class PreprocessBinPacking:
     def __init__(self, items, bin, placementPointStrategy = PlacementPointStrategy.UnitDiscretization):
         self.Items = items
         self.ProcessedItems = []

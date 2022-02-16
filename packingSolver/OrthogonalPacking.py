@@ -1,7 +1,6 @@
 from ortools.sat.python import cp_model
 from ortools.sat.python.cp_model import Domain
 
-from Preprocess import Preprocess
 from PlacementPoints import *
 from SymmetryBreaking import *
 
@@ -9,8 +8,10 @@ from BinPackingData import *
 
 from HelperIO import Converter
 
-import math
+import time
 import re
+
+import Preprocess
 
 class OrthogonalPackingSolver:
     def __init__(
@@ -30,17 +31,24 @@ class OrthogonalPackingSolver:
         self.PositionsX = []
         self.PositionsY = []
     
-    def Solve(self, instanceName = '9999', modelType = 'BaseModel'):
+    def Solve(self, enablePreprocess = True, instanceName = '9999', modelType = 'BaseModel'):
+        preprocess = Preprocess.PreprocessOrthogonalPacking(self.items, self.bin)
+        if enablePreprocess:
+            preprocess.Run()
+
+        preprocessedItems = preprocess.PreprocessedItems
+        preprocessedBin = preprocess.PreprocessBin
+
         if modelType == 'BaseModel':
-            model = OrthogonalPacking2D(self.items, self.bin, self.placementPointStrategy)
+            model = OrthogonalPacking2D(preprocessedItems, preprocessedBin, self.placementPointStrategy)
         elif modelType == 'BranchAndCut':
-            model = OrthogonalPackingRelaxed2D(self.items, self.bin, self.placementPointStrategy)
+            model = OrthogonalPackingRelaxed2D(preprocessedItems, preprocessedBin, self.placementPointStrategy)
         else:
             raise ValueError("Invalid bin packing model type.")
         
         isFeasible = model.Solve(instanceName)
         
-        numberOfItems = len(self.items)
+        numberOfItems = len(preprocessedItems)
         if numberOfItems == 1:
             self.PositionsX = [0.0]
             self.PositionsY = [0.0]
@@ -415,15 +423,20 @@ def main(instanceFilter = [r'.*']):
             items, H, W = ReadBenchmarkData(path, fileName)
             bin = Bin(W, H)
 
+            t1 = time.time()
+
             solver = OrthogonalPackingSolver(items, bin, PlacementPointStrategy.NormalPatterns)
             isFeasible = solver.Solve()
+            
+            t2 = time.time()
+            elapsedTime = t2 - t1
 
             if isFeasible:
                 rectangles = ExtractDataForPlot(solver.PositionsX, solver.PositionsY, items, W, H)
                 PlotSolution(W, H, rectangles)
-                print(f'{fileName} is feasible (#items = {len(items)})')
+                print(f'{fileName} is feasible in {elapsedTime}s (#items = {len(items)})')
             else:
-                print(f'{fileName} is infeasible (#items = {len(items)})')
+                print(f'{fileName} is infeasible in {elapsedTime}s (#items = {len(items)})')
 
 if __name__ == "__main__":
     main()
