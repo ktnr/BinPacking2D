@@ -107,6 +107,75 @@ class PlacementPointGenerator:
 
         return placementPointsX, placementPointsY
 
+    """ 
+    Domain reduction is feasible for normal patterns. Any feasible solution where the reduced item is not placed within its reduced
+    domain can be transformed into a solution where it is placed in its reduced domain by mirroring the solution.
+    """
+    def DetermineNormalPatternsX(self, items, item, binDx, offsetX = 0):
+        if binDx <= 0:
+            return [offsetX]
+
+        X = [0] * (binDx + 1)
+        X[0] = 1
+
+        for i, item in enumerate(items):
+            for p in range(binDx - item.Dx, -1, -1):
+                if X[p] == 1:
+                    X[p + item.Dx] = 1
+
+        normalPatternsX = []
+        decrementStart = binDx
+        if item.Id == self.reducedItem.Id:
+            decrementStart = self.reducedDomainThresholdX
+
+        for p in range (decrementStart, -1, -1):
+            if X[p] == 1:
+                normalPatternsX.append(offsetX + p)
+
+        return normalPatternsX
+
+    def DetermineNormalPatternsY(self, items, item, binDy):
+        if binDy <= 0:
+            return [0]
+
+        Y = [0] * (binDy + 1)
+        Y[0] = 1
+
+        for i, item in enumerate(items):
+            for p in range(binDy - item.Dy, -1, -1):
+                if Y[p] == 1:
+                    Y[p + item.Dy] = 1
+
+        normalPatternsY = []
+        decrementStart = binDy
+        if item.Id == self.reducedItem.Id:
+            decrementStart = self.reducedDomainThresholdY
+
+        for p in range (decrementStart, -1, -1):
+            if Y[p] == 1:
+                normalPatternsY.append(p)
+
+        return normalPatternsY
+
+    """
+    # In this variant, the fact that the item with a reduced domain can only be placed in a certain range is also considered
+    # when generating placement points for other items, not only for the reduced item itself.
+    # This might preserve optimality/feasibility but requires proof. What is special with this variant is that the order in 
+    # which the placement points are generated matters, i.e., the order of the items list, which was not the case before. 
+    # Consider a bin of dimension 10 and the item dimensions 1, 4, and 5. Reduced normal patterns are:
+    # 5: 0, 1, 4, 5 --> reduced domain = floor((10 - 5) / 2) = 2 --> 0, 1
+    # 4: 0, 1, 5, 6
+    # 1 (5, 4): 0, 4, 5, 9
+    # 1 (4, 5): 0, 4, 5 (9 is not generated because the reduced item cannot be placed on 4)
+    # With order (5, 4), 
+    # - the order 5, 4, 1 is possible so that item 1 can be placed at 9,
+    # - the order 4, 5, 1 is not possible because item 5 is outside its reduced domain.
+    # - the order 1, 5, 4 is possible and the mirror solution to 4, 5, 1
+    # With order (4, 5), 
+    # - the order 5, 4, 1, so that item 1 cannot be placed at 9, is not possible. 
+    # - the order 4, 5, 1 is not possible
+    # - the order 1, 5, 4 is possible and its mirror solution 4, 5, 1 hast item 1 is placed at 9.
+    # Does this exclude feasible solutions?
     def DetermineNormalPatternsX(self, items, item, binDx, offsetX = 0):
         if binDx <= 0:
             return [offsetX]
@@ -160,6 +229,7 @@ class PlacementPointGenerator:
                 normalPatternsY.append(p)
 
         return normalPatternsY
+    """
 
     def GenerateNormalPatterns(self, items, item, binDx, binDy, offsetX = 0):
         normalPatternsX = self.DetermineNormalPatternsX(items, item, binDx, offsetX)
@@ -167,6 +237,10 @@ class PlacementPointGenerator:
 
         return normalPatternsX, normalPatternsY
 
+    """ 
+    Domain reduction on normal patterns is compatible with meet-in-the-middle patterns. The proof should be similar to that of Proposition 5
+    in Cote and Iori (2018): Meet-in-the-middle principle, which more or less states that one item can be placed in one corner of the container.
+    """
     def DetermineMeetInTheMiddlePatternsX(self, items, itemI, binDx, t, offsetX = 0):
         """
         itemI = items[selectedItemIndex]
