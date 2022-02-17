@@ -69,7 +69,7 @@ Instance 11: Optimal solution = 10 found by B&C (#items = 40)
 ```
 
 ## Evaluation
-The algorithm produces optimal solutions for a majority of the 500 benchmark instances in less than 20 minutes. It has difficulty in proving feasibility/infeasibility of 2D-OPP subproblems for instances with many small items. For example google's CP-SAT solver takes more than 300 seconds to solve single 2D-OPP subproblems, and some cannot be solved even with far greater time limit, see `/data/input/OPP/BPP-Subproblems`.
+The algorithm produces optimal solutions for a majority of the 500 benchmark instances in less than 20 minutes. It has difficulty in proving feasibility/infeasibility of 2D-OPP subproblems for instances with many small items. For example, google's CP-SAT solver takes more than 300 seconds to solve single 2D-OPP subproblems, and some cannot be solved even with far greater time limit, see `/data/input/OPP/BPP-Subproblems`.
 
 The most impactful algorithmic components are
 - symmetry breaking constraints (24) and (25) of the original paper (arXiv version),
