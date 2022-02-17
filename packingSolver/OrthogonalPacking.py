@@ -421,7 +421,7 @@ def main(instanceFilter = [r'.*']):
 
             t1 = time.time()
 
-            solver = OrthogonalPackingSolver(items, bin, PlacementPointStrategy.MeetInTheMiddlePatterns)
+            solver = OrthogonalPackingSolver(items, bin, PlacementPointStrategy.NormalPatterns)
             isFeasible = solver.Solve()
             
             t2 = time.time()
@@ -436,4 +436,4 @@ def main(instanceFilter = [r'.*']):
                 print(f'{fileName} is infeasible in {elapsedTime}s')
 
 if __name__ == "__main__":
-    main([r'E02F17'])
+    main()

@@ -12,6 +12,10 @@ class PlacementPointStrategy(IntEnum):
     MeetInTheMiddlePatterns = 3
     MinimalMeetInTheMiddlePatterns = 4
 
+class MeetInTheMiddleMinimizationTarget(IntEnum):
+    IndividualPlacementPoints = 0
+    PlacementPointUnion = 1
+
 class PlacementPointGenerator:
     def __init__(self, items, bin, enableDomainReduction = True):
         if enableDomainReduction:
@@ -28,6 +32,8 @@ class PlacementPointGenerator:
             self.reducedItem = Item(-1, 0, 0)
             self.reducedDomainThresholdX = bin.Dx
             self.reducedDomainThresholdY = bin.Dy
+
+        self.meetInTheMiddleMinimizationTarget = MeetInTheMiddleMinimizationTarget.IndividualPlacementPoints
 
     @staticmethod
     def DetermineMaximumItemIndexDx(items):
@@ -67,6 +73,27 @@ class PlacementPointGenerator:
 
         return True
 
+    def CreatePlacementPatterns(self, placementPointStrategy, items, bin):
+        if placementPointStrategy == PlacementPointStrategy.MinimalMeetInTheMiddlePatterns:
+            return self.GenerateMinimalMeetInTheMiddlePatterns(items, bin)
+        
+        binDx = bin.Dx
+        binDy = bin.Dy
+        placementPatternsX = []
+        placementPatternsY = []
+        for i, item in enumerate(items):
+            itemSubset = []
+            for j, itemJ in enumerate(items):
+                if i == j:
+                    continue
+                itemSubset.append(itemJ)
+
+            placementPatternX, placementPatternY = self.CreateItemSpecificPlacementPattern(placementPointStrategy, item, itemSubset, bin)
+            placementPatternsX.append(placementPatternX)
+            placementPatternsY.append(placementPatternY)
+
+        return placementPatternsX, placementPatternsY
+        
     def CreateItemSpecificPlacementPattern(self, placementPointStrategy, item, filteredItems, bin, offsetX = 0):
         # TODO.Logic: bring for-loop over items into this methods and return a list of placement patterns, one entry for each item.
         # Before the loop, check if placementPointStrategy == PlacementPointStrategy.MinimalMeetInTheMiddlePatterns. If so, jump into separate routine and return immediately afterwards. 
@@ -83,9 +110,8 @@ class PlacementPointGenerator:
         elif placementPointStrategy == PlacementPointStrategy.MeetInTheMiddlePatterns:
             placementPointsX, placementPointsY = self.GenerateMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy, offsetX)
         elif placementPointStrategy == PlacementPointStrategy.MinimalMeetInTheMiddlePatterns:
-            # Item specific minimal meet-in-the-middle patterns are very inefficient. Instead, generate for all items at once.
-            placementPointsX, placementPointsY = self.GenerateMinimalMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy, offsetX)
-            raise ValueError("Minimal meet-in-the-middle patterns are not accurate, see #2.")
+            #print("Item specific minimal meet-in-the-middle patterns are very inefficient. Instead, normal meet-in-the-middle patterns will be generated.")
+            placementPointsX, placementPointsY = self.GenerateMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy, offsetX)
         else:
             raise ValueError('UnkownPlacementPointStrategy')
 
@@ -297,21 +323,37 @@ class PlacementPointGenerator:
 
         return list(meetInTheMiddlePointsX), list(meetInTheMiddlePointsY)
         
-    def DetermineMinimalMeetInTheMiddlePatternsX(self, items, itemI, binDx, offsetX = 0):
+    def GenerateMinimalMeetInTheMiddlePatternsX(self, items, binDx, offsetX = 0):
         meetInTheMiddlePointsLeftX = [0] * (binDx + 1)
         meetInTheMiddlePointsRightX = [0] * (binDx + 1)
 
-        regularNormalPatterns = self.DetermineNormalPatternsX(items, itemI, binDx - itemI.Dx, offsetX)
-        #normalPatternsX = PlacementPointGenerator.DetermineNormalPatternsX(items, binDx - itemI.Dx, offsetX)
+        normalPatterns = []
 
-        #regularNormalPatterns = set(normalPatternsX)
-        for p in regularNormalPatterns:
-            meetInTheMiddlePointsLeftX[p] = 1 # meetInTheMiddlePointsLeftX[p] + 1
-            meetInTheMiddlePointsRightX[binDx - itemI.Dx - p] = 1
+        for i, itemI in enumerate(items):
+            itemSubset = []
+            for j, itemJ in enumerate(items):
+                if i == j:
+                    continue
+                itemSubset.append(itemJ)
+
+            regularNormalPattern = self.DetermineNormalPatternsX(items, itemI, binDx - itemI.Dx, offsetX)
+            for p in regularNormalPattern:
+                if self.meetInTheMiddleMinimizationTarget == MeetInTheMiddleMinimizationTarget.IndividualPlacementPoints:
+                    # Determine tMin according to (9) with individual placement point counts.
+                    meetInTheMiddlePointsLeftX[p] += 1
+                    meetInTheMiddlePointsRightX[binDx - itemI.Dx - p] += 1
+                elif self.meetInTheMiddleMinimizationTarget == MeetInTheMiddleMinimizationTarget.PlacementPointUnion:
+                    # Alternatively, placement point union:
+                    meetInTheMiddlePointsLeftX[p] = 1
+                    meetInTheMiddlePointsRightX[binDx - itemI.Dx - p] = 1
+                else:
+                    raise ValueError("Invalid meet-in-the-middle minimization target.")
+
+            normalPatterns.append(regularNormalPattern)
 
         for p in range(1, binDx + 1):
             meetInTheMiddlePointsLeftX[p] = meetInTheMiddlePointsLeftX[p] + meetInTheMiddlePointsLeftX[p - 1]
-            meetInTheMiddlePointsRightX[binDx - p] = meetInTheMiddlePointsRightX[binDx - p] + meetInTheMiddlePointsRightX[binDx - (p - 1)]
+            meetInTheMiddlePointsRightX[binDx - p] = meetInTheMiddlePointsRightX[binDx - p] + meetInTheMiddlePointsRightX[binDx - p + 1]
 
         tMin = 1
         minX = meetInTheMiddlePointsLeftX[0] + meetInTheMiddlePointsRightX[1]
@@ -321,26 +363,46 @@ class PlacementPointGenerator:
                 minX = meetInTheMiddlePointsLeftX[p - 1] + meetInTheMiddlePointsRightX[p]
                 tMin = p
 
-        meetInTheMiddlePointsX = []
-        for p in regularNormalPatterns:
-            if p < tMin:
-                meetInTheMiddlePointsX.append(p)
+        meetInTheMiddlePatterns = []
+        for i, item in enumerate(items):
 
-            if binDx - itemI.Dx - p >= tMin:
-                meetInTheMiddlePointsX.append(binDx - itemI.Dx - p)
+            meetInTheMiddlePatternX = []
+            for p in normalPatterns[i]:
+                if p < tMin:
+                    meetInTheMiddlePatternX.append(p)
 
-        return meetInTheMiddlePointsX
+                if binDx - itemI.Dx - p >= tMin:
+                    meetInTheMiddlePatternX.append(binDx - itemI.Dx - p)
+            
+            meetInTheMiddlePatterns.append(meetInTheMiddlePatternX)
+
+        return meetInTheMiddlePatterns
         
-    def DetermineMinimalMeetInTheMiddlePatternsY(self, items, itemI, binDy):
+    def GenerateMinimalMeetInTheMiddlePatternsY(self, items, itemI, binDy):
         meetInTheMiddlePointsLeftY = [0] * (binDy + 1)
         meetInTheMiddlePointsRightY = [0] * (binDy + 1)
 
-        normalPatternsY = self.DetermineNormalPatternsY(items, itemI, binDy - itemI.Dy)
+        normalPatterns = []
+        
+        for i, itemI in enumerate(items):
+            itemSubset = []
+            for j, itemJ in enumerate(items):
+                if i == j:
+                    continue
+                itemSubset.append(itemJ)
 
-        regularNormalPatterns = set(normalPatternsY)
-        for p in regularNormalPatterns:
-            meetInTheMiddlePointsLeftY[p] = 1 # meetInTheMiddlePointsLeftX[p] + 1
-            meetInTheMiddlePointsRightY[binDy - itemI.Dy - p] = 1
+            regularNormalPattern = self.DetermineNormalPatternsY(items, itemI, binDy - itemI.Dy)
+            for p in regularNormalPattern:
+                if self.meetInTheMiddleMinimizationTarget == MeetInTheMiddleMinimizationTarget.IndividualPlacementPoints:
+                    meetInTheMiddlePointsLeftY[p] += 1
+                    meetInTheMiddlePointsRightY[binDy - itemI.Dy - p] += 1
+                elif self.meetInTheMiddleMinimizationTarget == MeetInTheMiddleMinimizationTarget.PlacementPointUnion:
+                    meetInTheMiddlePointsLeftY[p] = 1
+                    meetInTheMiddlePointsRightY[binDy - itemI.Dy - p] = 1
+                else:
+                    raise ValueError("Invalid meet-in-the-middle minimization target.")
+
+            normalPatterns.append(regularNormalPattern)
 
         for p in range(1, binDy + 1):
             meetInTheMiddlePointsLeftY[p] = meetInTheMiddlePointsLeftY[p] + meetInTheMiddlePointsLeftY[p - 1]
@@ -354,18 +416,22 @@ class PlacementPointGenerator:
                 minY = meetInTheMiddlePointsLeftY[p - 1] + meetInTheMiddlePointsRightY[p]
                 tMin = p
 
-        meetInTheMiddlePointsY = []
-        for p in regularNormalPatterns:
-            if p < tMin:
-                meetInTheMiddlePointsY.append(p)
+        meetInTheMiddlePatterns = []
+        for i, item in enumerate(items):
+            meetInTheMiddlePattern = []
+            for p in normalPatterns[i]:
+                if p < tMin:
+                    meetInTheMiddlePattern.append(p)
 
-            if binDy - itemI.Dy - p >= tMin:
-                meetInTheMiddlePointsY.append(binDy - itemI.Dy - p)
+                if binDy - itemI.Dy - p >= tMin:
+                    meetInTheMiddlePattern.append(binDy - itemI.Dy - p)
 
-        return meetInTheMiddlePointsY
+            meetInTheMiddlePatterns.append(meetInTheMiddlePattern)
+
+        return meetInTheMiddlePatterns
         
-    def GenerateMinimalMeetInTheMiddlePatterns(self, items, itemI, binDx, binDy, offsetX = 0):
-        meetInTheMiddlePointsX = self.DetermineMinimalMeetInTheMiddlePatternsX(items, itemI, binDx, offsetX)
-        meetInTheMiddlePointsY = self.DetermineMinimalMeetInTheMiddlePatternsY(items, itemI, binDy)
+    def GenerateMinimalMeetInTheMiddlePatterns(self, items, bin, offsetX = 0):
+        meetInTheMiddlePatternsX = self.GenerateMinimalMeetInTheMiddlePatternsX(items, bin.Dx, offsetX)
+        meetInTheMiddlePatternsY = self.GenerateMinimalMeetInTheMiddlePatternsY(items, bin.Dy)
 
-        return meetInTheMiddlePointsX, meetInTheMiddlePointsY
+        return meetInTheMiddlePatternsX, meetInTheMiddlePatternsY
