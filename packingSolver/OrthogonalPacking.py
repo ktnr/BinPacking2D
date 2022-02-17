@@ -290,12 +290,13 @@ class OrthogonalPackingRelaxed2D(OrthogonalPackingBase2D):
         #reducedItem = self.Items[reducedItemIndex]
         #reducedDomainThresholdX = SymmetryBreaking.ReducedDomainX(binDx, reducedItem)
         placementPointGenerator = PlacementPointGenerator(self.Items, self.Bin)
+        placementPatternsX, placementPatternsY = placementPointGenerator.CreatePlacementPatterns(self.placementPointStrategy, self.Items, self.Bin)
 
         for i, item in enumerate(self.Items):
         
             filteredItems = [itemJ for j, itemJ in enumerate(self.Items) if i != j]
 
-            placementPointsX, placementPointsY = placementPointGenerator.CreateItemSpecificPlacementPattern(self.placementPointStrategy, item, filteredItems, self.Bin)
+            placementPatternX = placementPatternsX[i]
 
             #if i == reducedItemIndex:
             #    placementPointsStartX = [p for p in placementPointsX if p + item.Dx <= binDx and p <= reducedDomainThresholdX]
@@ -303,7 +304,7 @@ class OrthogonalPackingRelaxed2D(OrthogonalPackingBase2D):
             #    placementPointsStartX = [p for p in placementPointsX if p + item.Dx <= binDx] # unnecessary, is satisfied by construction
 
             #x1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsStartX), f'x1.{i}')
-            x1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsX), f'x1.{i}')
+            x1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPatternX), f'x1.{i}')
 
             self.StartX.append(x1)
 
@@ -349,15 +350,17 @@ class OrthogonalPacking2D(OrthogonalPackingBase2D):
         binDy = self.Bin.Dy
 
         placementPointGenerator = PlacementPointGenerator(self.Items, self.Bin)
+        placementPatternsX, placementPatternsY = placementPointGenerator.CreatePlacementPatterns(self.placementPointStrategy, self.Items, self.Bin)
 
         # Consider modifying domains according to Cote, Iori (2018): The meet-in-the-middle principle for cutting and packing problems.
         for i, item in enumerate(self.Items):
         
             filteredItems = [itemJ for j, itemJ in enumerate(self.Items) if i != j]
 
-            placementPointsX, placementPointsY = placementPointGenerator.CreateItemSpecificPlacementPattern(self.placementPointStrategy, item, filteredItems, self.Bin)
+            placementPatternX = placementPatternsX[i]
+            placementPatternY = placementPatternsY[i]
 
-            x1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsX), f'x1.{i}')
+            x1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPatternX), f'x1.{i}')
 
             #placementPointsEndX = [p + item.Dx for p in placementPointsStartX]
             #x2 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsEndX), f'x2.{i}')
@@ -365,7 +368,7 @@ class OrthogonalPacking2D(OrthogonalPackingBase2D):
             self.StartX.append(x1)
             #self.EndX.append(x2)
 
-            y1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsY), f'y1.{i}')
+            y1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPatternY), f'y1.{i}')
             #placementPointsEndY = [p + item.Dy for p in placementPointsStartY]
             #y2 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsEndY), f'y2.{i}')
 
@@ -421,16 +424,16 @@ def main(instanceFilter = [r'.*']):
 
             t1 = time.time()
 
-            solver = OrthogonalPackingSolver(items, bin, PlacementPointStrategy.MinimalMeetInTheMiddlePatterns)
-            isFeasible = solver.Solve()
+            solver = OrthogonalPackingSolver(items, bin, PlacementPointStrategy.NormalPatterns)
+            isFeasible = solver.Solve(False)
             
             t2 = time.time()
             elapsedTime = t2 - t1
 
             if isFeasible:
                 # needs rework due to preprocess removing items
-                #rectangles = ExtractDataForPlot(solver.PositionsX, solver.PositionsY, items, W, H)
-                #PlotSolution(W, H, rectangles)
+                rectangles = ExtractDataForPlot(solver.PositionsX, solver.PositionsY, items, W, H)
+                PlotSolution(W, H, rectangles)
                 print(f'{fileName} is feasible in {elapsedTime}s')
             else:
                 print(f'{fileName} is infeasible in {elapsedTime}s')

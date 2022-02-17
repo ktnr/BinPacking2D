@@ -77,8 +77,6 @@ class PlacementPointGenerator:
         if placementPointStrategy == PlacementPointStrategy.MinimalMeetInTheMiddlePatterns:
             return self.GenerateMinimalMeetInTheMiddlePatterns(items, bin)
         
-        binDx = bin.Dx
-        binDy = bin.Dy
         placementPatternsX = []
         placementPatternsY = []
         for i, item in enumerate(items):
@@ -286,19 +284,15 @@ class PlacementPointGenerator:
         return meetInTheMiddlePoints
 
     def GenerateMeetInTheMiddlePatterns(self, items, itemI, binDx, binDy, offsetX = 0):
-        meetInTheMiddlePointsX = set()
-        meetInTheMiddlePointsY = set()
-        for t in range(1, binDx + 1):
-            meetInTheMiddlePoints = self.DetermineMeetInTheMiddlePatternsX(items, itemI, binDx, t, offsetX)
-            #meetInTheMiddlePointsX.extend(meetInTheMiddlePoints)
-            meetInTheMiddlePointsX.update(meetInTheMiddlePoints)
+        # Arbitrary threshold, can be parametrized
+        thresholdDx = math.ceil(binDx / 2)
+        thresholdDy = math.ceil(binDy / 2)
+        
+        meetInTheMiddlePointsX = self.DetermineMeetInTheMiddlePatternsX(items, itemI, binDx, thresholdDx, offsetX)
 
-        for t in range(1, binDy + 1):
-            meetInTheMiddlePoints = self.DetermineMeetInTheMiddlePatternsY(items, itemI, binDy, t)
-            #meetInTheMiddlePointsY.extend(meetInTheMiddlePoints)
-            meetInTheMiddlePointsY.update(meetInTheMiddlePoints)
+        meetInTheMiddlePointsY = self.DetermineMeetInTheMiddlePatternsY(items, itemI, binDy, thresholdDy)
 
-        return list(meetInTheMiddlePointsX), list(meetInTheMiddlePointsY)
+        return meetInTheMiddlePointsX, meetInTheMiddlePointsY
         
     def DetermineMinimalMeetInTheMiddlePatterns(self, items, bin, axis, offset = 0):
         binDimension = bin.Dimension(axis)
@@ -313,6 +307,7 @@ class PlacementPointGenerator:
             for j, itemJ in enumerate(items):
                 if i == j:
                     continue
+
                 itemSubset.append(itemJ)
 
             regularNormalPattern = self.DetermineNormalPatterns(items, itemI, axis, binDimension - itemI.Dimension(axis), offset)
@@ -342,19 +337,22 @@ class PlacementPointGenerator:
                 minThreshold = meetInTheMiddlePointsLeft[p - 1] + meetInTheMiddlePointsRight[p]
                 tMin = p
 
+        meetInTheMiddlePatterns = self.GenerateMeetInTheMiddleFromNormalPatterns(items, axis, binDimension, normalPatterns, tMin)
+
+        return meetInTheMiddlePatterns
+
+    def GenerateMeetInTheMiddleFromNormalPatterns(self, items, axis, binDimension, normalPatterns, tMin):
         meetInTheMiddlePatterns = []
         for i, item in enumerate(items):
-
             meetInTheMiddlePattern = []
             for p in normalPatterns[i]:
                 if p < tMin:
                     meetInTheMiddlePattern.append(p)
 
-                if binDimension - itemI.Dimension(axis) - p >= tMin:
-                    meetInTheMiddlePattern.append(binDimension - itemI.Dimension(axis) - p)
+                if binDimension - item.Dimension(axis) - p >= tMin:
+                    meetInTheMiddlePattern.append(binDimension - item.Dimension(axis) - p)
             
             meetInTheMiddlePatterns.append(meetInTheMiddlePattern)
-
         return meetInTheMiddlePatterns
         
     def GenerateMinimalMeetInTheMiddlePatterns(self, items, bin, offsetX = 0):
