@@ -33,6 +33,7 @@ class PlacementPointGenerator:
             self.reducedDomainThresholdX = bin.Dx
             self.reducedDomainThresholdY = bin.Dy
 
+        self.enableMeetinTheMiddlePreprocessing = True
         self.meetInTheMiddleMinimizationTarget = MeetInTheMiddleMinimizationTarget.IndividualPlacementPoints
 
     @staticmethod
@@ -310,7 +311,7 @@ class PlacementPointGenerator:
 
                 itemSubset.append(itemJ)
 
-            regularNormalPattern = self.DetermineNormalPatterns(items, itemI, axis, binDimension - itemI.Dimension(axis), offset)
+            regularNormalPattern = self.DetermineNormalPatterns(items, itemI, axis, binDimension - itemI.Dimension(axis))
             for p in regularNormalPattern:
                 if self.meetInTheMiddleMinimizationTarget == MeetInTheMiddleMinimizationTarget.IndividualPlacementPoints:
                     # Determine tMin according to (9) with individual placement point counts.
@@ -337,9 +338,143 @@ class PlacementPointGenerator:
                 minThreshold = meetInTheMiddlePointsLeft[p - 1] + meetInTheMiddlePointsRight[p]
                 tMin = p
 
-        meetInTheMiddlePatterns = self.GenerateMeetInTheMiddleFromNormalPatterns(items, axis, binDimension, normalPatterns, tMin)
+        meetInTheMiddlePatterns = []
+        if self.enableMeetinTheMiddlePreprocessing:
+            meetInTheMiddlePatterns = self.GenerateReducedMeetInTheMiddlePatterns(items, axis, binDimension, tMin)
+        else:
+            meetInTheMiddlePatterns = self.GenerateMeetInTheMiddleFromNormalPatterns(items, axis, binDimension, normalPatterns, tMin)
 
         return meetInTheMiddlePatterns
+
+    def GenerateReducedMeetInTheMiddlePatterns(self, items, axis, binDimension, threshold):
+        itemSpecificModifiedDimensions = []
+        itemSpecificPatternsLeft = []
+        itemSpecificPatternsRight = []
+        itemSpecificMeetInTheMiddlePatterns = []
+        for i, item in enumerate(items):
+            meetInTheMiddlePointsLeft = self.DetermineNormalPatterns(items, item, axis, min(threshold - 1, binDimension - item.Dimension(axis))) # placemenetPointsLeft
+            placemenetPointsRightPrime = self.DetermineNormalPatterns(items, item, axis, binDimension - item.Dimension(axis) - threshold)
+
+            meetInTheMiddlePointsRight = []
+            for p in placemenetPointsRightPrime:
+                meetInTheMiddlePointsRight.append(binDimension - item.Dimension(axis) - p)
+
+            itemSpecificPatternsLeft.append(meetInTheMiddlePointsLeft)
+            itemSpecificPatternsRight.append(meetInTheMiddlePointsRight)
+
+            meetInTheMiddlePattern = list(set(meetInTheMiddlePointsRight) | set(meetInTheMiddlePointsLeft))
+            itemSpecificMeetInTheMiddlePatterns.append(meetInTheMiddlePattern)
+
+            initialDimensions = [item.Dimension(axis)] * (binDimension + 1)
+            itemSpecificModifiedDimensions.append(initialDimensions)
+
+        # Proposition 6 for left
+        self.DetermineEnlargedItemDimensionsLeft(items, axis, itemSpecificModifiedDimensions, itemSpecificPatternsLeft, binDimension, itemSpecificMeetInTheMiddlePatterns)
+
+        # Proposition 6 for right
+        self.DetermineEnlargedItemDimensionsRight(items, axis, itemSpecificModifiedDimensions, itemSpecificPatternsRight, binDimension, itemSpecificMeetInTheMiddlePatterns)
+
+        # Merge left and right patterns to meet in the middle sets
+        # Necessary since right placement points may be changed in DetermineEnlargedItemDimensionsRight()
+        for i, _ in enumerate(items):
+            itemSpecificMeetInTheMiddlePatterns[i] = list(set(itemSpecificPatternsLeft[i]) | set(itemSpecificPatternsRight[i]))
+
+        # Proposition 7
+        self.RemoveRedundantPatterns(items, itemSpecificModifiedDimensions, itemSpecificMeetInTheMiddlePatterns)
+
+        return itemSpecificMeetInTheMiddlePatterns
+
+    def RemoveRedundantPatterns(self, items, itemSpecificModifiedDimensions, itemSpecificMeetInTheMiddlePatterns):
+        for k, itemK in enumerate(items):
+            modifiedItemDimensionsK = itemSpecificModifiedDimensions[k]
+            placementPoints = itemSpecificMeetInTheMiddlePatterns[k]
+
+            for p in placementPoints:
+                # p < s
+                for s in placementPoints:
+                    if p >= s:
+                        continue
+
+                    modifiedWidthP = modifiedItemDimensionsK[p]
+                    modifiedWidthS = modifiedItemDimensionsK[s]
+                    if s + modifiedWidthS <= p + modifiedWidthP:
+                        placementPoints.remove(p)
+
+    def DetermineEnlargedItemDimensionsRight(self, items, axis, itemSpecificModifiedDimensions, itemSpecificPatternsRight, binDimension, preliminaryItemSpecificMeetInTheMiddlePatterns):
+        for k, itemK in enumerate(items):
+            itemK = items[k]
+            minSelectedItemDimension = itemK.Dimension(axis)
+
+            modifiedItemDimensionsK = itemSpecificModifiedDimensions[k]
+            placementPointsRight = itemSpecificPatternsRight[k]
+
+            for p in placementPointsRight:
+                if p > binDimension - minSelectedItemDimension:
+                    continue
+
+                sMax = 0
+
+                for i, itemI in enumerate(items):
+                    if i == k:
+                        continue
+
+                    minSelectedItemDimensionI = itemI.Dimension(axis)
+                    meetInTheMiddlePointsI = preliminaryItemSpecificMeetInTheMiddlePatterns[i]
+                    modifiedItemDimensionsI = itemSpecificModifiedDimensions[i]
+
+                    for s in meetInTheMiddlePointsI:
+                        if s > binDimension - minSelectedItemDimensionI:
+                            continue
+
+                        if s + modifiedItemDimensionsI[s] <= p:
+                            sMax = max(sMax, s + modifiedItemDimensionsI[s])
+                        else:
+                            break
+
+                q = max(0, sMax)
+
+                if q < p:
+                    if q not in placementPointsRight:
+                        placementPointsRight.append(q)
+                    placementPointsRight.remove(p)
+
+                    modifiedItemDimensionsK[q] = p + minSelectedItemDimension - q
+
+    def DetermineEnlargedItemDimensionsLeft(self, items, axis, itemSpecificModifiedDimensions, itemSpecificPatternsLeft, binDimension, preliminaryItemSpecificMeetInTheMiddlePatterns):
+        for k, itemK in enumerate(items):
+            itemK = items[k]
+            minSelectedItemDimension = itemK.Dimension(axis)
+
+            modifiedItemDimensionsK = itemSpecificModifiedDimensions[k]
+            placementPointsLeft = itemSpecificPatternsLeft[k]
+
+            for p in placementPointsLeft:
+                if p > binDimension - minSelectedItemDimension:
+                    # can this even occur? Could break instead if points are guaranteed to be sorted (which they are!?) in order to be faster.
+                    continue
+
+                sMin = binDimension
+
+                for i, itemI in enumerate(items):
+                    if i == k:
+                        continue
+
+                    minSelectedItemDimensionI = itemI.Dimension(axis)
+                    meetInTheMiddlePointsI = preliminaryItemSpecificMeetInTheMiddlePatterns[i]
+
+                    for s in meetInTheMiddlePointsI:
+                        if s > binDimension - minSelectedItemDimensionI:
+                            continue
+
+                        if s >= p + modifiedItemDimensionsK[p]:
+                            sMin = min(sMin, s)
+                            break
+
+                q = min(binDimension, sMin)
+
+                if q > p:
+                    assert q - p >= minSelectedItemDimension
+                    modifiedItemDimensionsK[p] = q - p
 
     def GenerateMeetInTheMiddleFromNormalPatterns(self, items, axis, binDimension, normalPatterns, tMin):
         meetInTheMiddlePatterns = []

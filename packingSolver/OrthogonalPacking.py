@@ -355,7 +355,7 @@ class OrthogonalPacking2D(OrthogonalPackingBase2D):
         # Consider modifying domains according to Cote, Iori (2018): The meet-in-the-middle principle for cutting and packing problems.
         for i, item in enumerate(self.Items):
         
-            filteredItems = [itemJ for j, itemJ in enumerate(self.Items) if i != j]
+            #filteredItems = [itemJ for j, itemJ in enumerate(self.Items) if i != j]
 
             placementPatternX = placementPatternsX[i]
             placementPatternY = placementPatternsY[i]
@@ -424,19 +424,19 @@ def main(instanceFilter = [r'.*']):
 
             t1 = time.time()
 
-            solver = OrthogonalPackingSolver(items, bin, PlacementPointStrategy.NormalPatterns)
-            isFeasible = solver.Solve(False)
+            solver = OrthogonalPackingSolver(items, bin, PlacementPointStrategy.MinimalMeetInTheMiddlePatterns)
+            isFeasible = solver.Solve()
             
             t2 = time.time()
             elapsedTime = t2 - t1
 
             if isFeasible:
                 # needs rework due to preprocess removing items
-                rectangles = ExtractDataForPlot(solver.PositionsX, solver.PositionsY, items, W, H)
-                PlotSolution(W, H, rectangles)
+                #rectangles = ExtractDataForPlot(solver.PositionsX, solver.PositionsY, items, W, H)
+                #PlotSolution(W, H, rectangles)
                 print(f'{fileName} is feasible in {elapsedTime}s')
             else:
                 print(f'{fileName} is infeasible in {elapsedTime}s')
 
 if __name__ == "__main__":
-    main()
+    main([r'E02F17'])
