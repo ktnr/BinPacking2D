@@ -10,7 +10,7 @@ In contrast to the original paper, this implementation uses constraint programmi
 
 ## Algorithmic outline
 
-The two-dimensional bin packing problem (2D-BPP) is decomposed into a master problem and several subproblems. The master problem is a (one-dimensional) BPP, which assigns items to bins. Feasibility of each bin assignment is then checked in a separate two-dimensional knapsack/orthogonal packing (2D-KP/2D-OPP) subproblem.
+The two-dimensional bin packing problem (2D-BPP) is decomposed into a master problem and several subproblems. The master problem is a (one-dimensional) BPP, which assigns items to bins. Feasibility of each bin assignment is then checked in a separate two-dimensional orthogonal packing/knapsack (2D-OPP/2D-KP) subproblem.
 
 The master problem is modeled as a MIP and solved using [Gurobi](https://www.gurobi.com/). Callbacks are set at integer nodes, where the subproblems are generated and solved by constraint programming (CP) using [google or-tools](https://developers.google.com/optimization/cp/cp_solver). When an infeasible subproblem is found, a cut of the form
 
