@@ -421,7 +421,7 @@ def main(instanceFilter = [r'.*']):
 
             t1 = time.time()
 
-            solver = OrthogonalPackingSolver(items, bin, PlacementPointStrategy.NormalPatterns)
+            solver = OrthogonalPackingSolver(items, bin, PlacementPointStrategy.MinimalMeetInTheMiddlePatterns)
             isFeasible = solver.Solve()
             
             t2 = time.time()
