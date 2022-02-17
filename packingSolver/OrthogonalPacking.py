@@ -295,7 +295,7 @@ class OrthogonalPackingRelaxed2D(OrthogonalPackingBase2D):
         
             filteredItems = [itemJ for j, itemJ in enumerate(self.Items) if i != j]
 
-            placementPointsX, placementPointsY = placementPointGenerator.CreatePlacementPatterns(self.placementPointStrategy, item, filteredItems, self.Bin)
+            placementPointsX, placementPointsY = placementPointGenerator.CreateItemSpecificPlacementPattern(self.placementPointStrategy, item, filteredItems, self.Bin)
 
             #if i == reducedItemIndex:
             #    placementPointsStartX = [p for p in placementPointsX if p + item.Dx <= binDx and p <= reducedDomainThresholdX]
@@ -355,7 +355,7 @@ class OrthogonalPacking2D(OrthogonalPackingBase2D):
         
             filteredItems = [itemJ for j, itemJ in enumerate(self.Items) if i != j]
 
-            placementPointsX, placementPointsY = placementPointGenerator.CreatePlacementPatterns(self.placementPointStrategy, item, filteredItems, self.Bin)
+            placementPointsX, placementPointsY = placementPointGenerator.CreateItemSpecificPlacementPattern(self.placementPointStrategy, item, filteredItems, self.Bin)
 
             x1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsX), f'x1.{i}')
 

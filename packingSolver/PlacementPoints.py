@@ -50,9 +50,12 @@ class PlacementPointGenerator:
 
     @staticmethod
     def IsDomainReductionCompatible(placementPointStrategy):
-        if placementPointStrategy == PlacementPointStrategy.UnitDiscretization or placementPointStrategy == PlacementPointStrategy.NormalPatterns:
+        if (placementPointStrategy == PlacementPointStrategy.StandardUnitDiscretization 
+        or placementPointStrategy == PlacementPointStrategy.UnitDiscretization 
+        or placementPointStrategy == PlacementPointStrategy.NormalPatterns):
             return True
         
+        # Domain reduction cannot be applied to mMeet-in-the-middle patterns after they have been generated.
         return False
     
     @staticmethod
@@ -64,7 +67,7 @@ class PlacementPointGenerator:
 
         return True
 
-    def CreatePlacementPatterns(self, placementPointStrategy, item, filteredItems, bin, offsetX = 0):
+    def CreateItemSpecificPlacementPattern(self, placementPointStrategy, item, filteredItems, bin, offsetX = 0):
         # TODO.Logic: bring for-loop over items into this methods and return a list of placement patterns, one entry for each item.
         # Before the loop, check if placementPointStrategy == PlacementPointStrategy.MinimalMeetInTheMiddlePatterns. If so, jump into separate routine and return immediately afterwards. 
         binDx = bin.Dx
@@ -80,6 +83,7 @@ class PlacementPointGenerator:
         elif placementPointStrategy == PlacementPointStrategy.MeetInTheMiddlePatterns:
             placementPointsX, placementPointsY = self.GenerateMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy, offsetX)
         elif placementPointStrategy == PlacementPointStrategy.MinimalMeetInTheMiddlePatterns:
+            # Item specific minimal meet-in-the-middle patterns are very inefficient. Instead, generate for all items at once.
             placementPointsX, placementPointsY = self.GenerateMinimalMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy, offsetX)
             raise ValueError("Minimal meet-in-the-middle patterns are not accurate, see #2.")
         else:
@@ -239,7 +243,8 @@ class PlacementPointGenerator:
 
     """ 
     Domain reduction on normal patterns is compatible with meet-in-the-middle patterns. The proof should be similar to that of Proposition 5
-    in Cote and Iori (2018): Meet-in-the-middle principle, which more or less states that one item can be placed in one corner of the container.
+    in Cote and Iori (2018): Meet-in-the-middle principle, which more or less states that one item can be placed in onepcorner of the container.
+    This implies that domain reduction is incompatible with preprocessing step 1 of Cote and Iori (2018).
     """
     def DetermineMeetInTheMiddlePatternsX(self, items, itemI, binDx, t, offsetX = 0):
         """
