@@ -447,7 +447,7 @@ class BinPackingMip:
             bin = self.Model._Bins[b]
 
             orthogonalPacking = OrthogonalPackingSolver(itemsInBin, bin, self.Model._PlacementPointStrategy) #
-            isFeasible = orthogonalPacking.Solve(self._EnableSubproblemPreprocess, self.InstanceId)
+            isFeasible = orthogonalPacking.Solve(self.Model._EnableSubproblemPreprocess, self.InstanceId)
 
             if not isFeasible:
                 raise ValueError('Packing must not be infeasible during solution extraction.')
@@ -552,7 +552,6 @@ class BinPackingMip:
             model.addConstr(expr <= len(infeasibleItemSubset) - 1)
 
     def AddLiftedCut(self, infeasibleItemSubset, itemVariables, model):
-
         minIdInitial = min(infeasibleItemSubset)
         for b, bin in enumerate(model._Bins):
             if b > minIdInitial:
@@ -704,7 +703,7 @@ class BinPackingBranchAndCutSolver:
         self.SolverType = "B&C"
 
     def DetermineStartSolution(self, items, H, W, lowerBoundBin):
-        solverCP = BinPackingSolverCP(items, H, W, lowerBoundBin, len(items), self.PlacementPointStrategy, 30, False, self.preprocess)
+        solverCP = BinPackingSolverCP(items, H, W, lowerBoundBin, len(items), self.PlacementPointStrategy, 180, False, self.preprocess)
         rectangles = solverCP.Solve('OneBigBin')
 
         if solverCP.LB == solverCP.UB:
@@ -751,6 +750,7 @@ class BinPackingBranchAndCutSolver:
 def main():
     solutions = {}
     # Single bin 2D-BPP CP model takes ages to prove feasibility/infeasibility on instances: 173, 262, 292, 297, 298, 317
+    # Deprecated comments:
     # Meet in the middle produces erroneous 1D KP instances for instances 11
     # Postsolve error: 51, 45, 125/126, 31, 26 or 27, 311
     # Double count: 21, 22, 26, 27, 31, 32
@@ -775,7 +775,7 @@ def main():
         solverType = solver.SolverType
         isOptimalMIP = solver.IsOptimal
         
-        PlotSolution(upperBoundMIP * W, H, rectangles)
+        #PlotSolution(upperBoundMIP * W, H, rectangles)
 
         if isOptimalMIP:
             print(f'Instance {instance}: Optimal solution = {int(bestBoundMIP)} found by {solverType} (#items = {len(items)})')

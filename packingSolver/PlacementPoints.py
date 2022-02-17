@@ -1,44 +1,113 @@
 from enum import IntEnum
+from Model import Item
+
+#import SymmetryBreaking
+
+import math
 
 class PlacementPointStrategy(IntEnum):
-    UnitDiscretization = 0
-    NormalPatterns = 1
-    MeetInTheMiddlePatterns = 2
-    MinimalMeetInTheMiddlePatterns = 3
+    StandardUnitDiscretization = 0
+    UnitDiscretization = 1
+    NormalPatterns = 2
+    MeetInTheMiddlePatterns = 3
+    MinimalMeetInTheMiddlePatterns = 4
 
 class PlacementPointGenerator:
+    def __init__(self, items, bin, enableDomainReduction = True):
+        if enableDomainReduction:
+            # Symmetry breaking according to 
+            # Soh, T., Inoue, K., Tamura, N., Banbara, M., & Nabeshima, H. (2010). A SAT-based method for solving the two-dimensional strip packing problem. Fundamenta Informaticae, 102(3-4), 467-487.
+            self.reducedItemIndex = PlacementPointGenerator.DetermineMaximumItemIndexDx(items)
+
+            self.reducedItem = items[self.reducedItemIndex]
+            self.reducedDomainThresholdX = PlacementPointGenerator.ReducedDomainX(bin.Dx, self.reducedItem)
+            self.reducedDomainThresholdY = PlacementPointGenerator.ReducedDomainY(bin.Dy, self.reducedItem)
+        else:
+            self.reducedItemIndex = -1
+
+            self.reducedItem = Item(-1, 0, 0)
+            self.reducedDomainThresholdX = bin.Dx
+            self.reducedDomainThresholdY = bin.Dy
 
     @staticmethod
-    def CreatePlacementPatterns(placementPointStrategy, item, filteredItems, bin, offsetX = 0):
+    def DetermineMaximumItemIndexDx(items):
+        maximumItemIndex = 0
+        maximumItemDx = items[0].Dx
+        for i, item in enumerate(items):
+            if item.Dx > maximumItemDx:
+                maximumItemIndex = i
+                maximumItemDx = item.Dx
+
+        return maximumItemIndex
+
+    @staticmethod
+    def ReducedDomainX(binDx, item, offsetX = 0):
+        return offsetX + math.floor((binDx - item.Dx) / 2.0)
+
+    @staticmethod
+    def ReducedDomainY(binDy, item):
+        return math.floor((binDy - item.Dy) / 2.0)
+
+    @staticmethod
+    def IsDomainReductionCompatible(placementPointStrategy):
+        if placementPointStrategy == PlacementPointStrategy.UnitDiscretization or placementPointStrategy == PlacementPointStrategy.NormalPatterns:
+            return True
+        
+        return False
+    
+    @staticmethod
+    def IsMaximalPlaceableItem(item, itemSubset, domainReducedItems, binId):
+        for otherItem in itemSubset:
+            if otherItem.Dx > item.Dx or binId in domainReducedItems[otherItem.Id]:
+            #if otherItem.Dx > item.Dx or domainReducedItems[otherItem.Id] == True:
+                return False
+
+        return True
+
+    def CreatePlacementPatterns(self, placementPointStrategy, item, filteredItems, bin, offsetX = 0):
+        # TODO.Logic: bring for-loop over items into this methods and return a list of placement patterns, one entry for each item.
+        # Before the loop, check if placementPointStrategy == PlacementPointStrategy.MinimalMeetInTheMiddlePatterns. If so, jump into separate routine and return immediately afterwards. 
         binDx = bin.Dx
         binDy = bin.Dy
         placementPointsX = []
         placementPointsY = []
-        if placementPointStrategy == PlacementPointStrategy.UnitDiscretization:
-            placementPointsX, placementPointsY = PlacementPointGenerator.DetermineUnitDiscretization(filteredItems, item, bin, offsetX)
+        if placementPointStrategy == PlacementPointStrategy.StandardUnitDiscretization:
+            placementPointsX, placementPointsY = self.GenerateStandardUnitDiscretization(filteredItems, item, bin, offsetX)
+        elif placementPointStrategy == PlacementPointStrategy.UnitDiscretization:
+            placementPointsX, placementPointsY = self.GenerateUnitDiscretization(filteredItems, item, bin, offsetX)
         elif placementPointStrategy == PlacementPointStrategy.NormalPatterns:
-            placementPointsX, placementPointsY = PlacementPointGenerator.DetermineNormalPatterns(filteredItems, binDx - item.Dx, binDy - item.Dy, offsetX)
+            placementPointsX, placementPointsY = self.GenerateNormalPatterns(filteredItems, item, binDx - item.Dx, binDy - item.Dy, offsetX)
         elif placementPointStrategy == PlacementPointStrategy.MeetInTheMiddlePatterns:
-            placementPointsX, placementPointsY = PlacementPointGenerator.DetermineMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy, offsetX)
-            raise ValueError("Meet-in-the-middle patterns is incompatible with domain reduction.")
+            placementPointsX, placementPointsY = self.GenerateMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy, offsetX)
         elif placementPointStrategy == PlacementPointStrategy.MinimalMeetInTheMiddlePatterns:
-            placementPointsX, placementPointsY = PlacementPointGenerator.DetermineMinimalMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy, offsetX)
-            raise ValueError("Minimal meet-in-the-middle patterns might not be accurate, see #2.")
-            raise ValueError("Meet-in-the-middle patterns is incompatible with domain reduction.")
+            placementPointsX, placementPointsY = self.GenerateMinimalMeetInTheMiddlePatterns(filteredItems, item, binDx, binDy, offsetX)
+            raise ValueError("Minimal meet-in-the-middle patterns are not accurate, see #2.")
         else:
             raise ValueError('UnkownPlacementPointStrategy')
 
         return placementPointsX, placementPointsY
 
-    @staticmethod
-    def DetermineUnitDiscretization(filteredItems, item, bin, offsetX = 0):
-        placementPointsX = list(range(offsetX, offsetX + bin.Dx + 1 - item.Dx))
-        placementPointsY = list(range(0, bin.Dy + 1 - item.Dy))
+    """ Without symmetry breaking. """
+    def GenerateStandardUnitDiscretization(self, filteredItems, item, bin, offsetX = 0):
+        placementPointsX = list(range(offsetX, offsetX + bin.Dx - item.Dx + 1))
+        placementPointsY = list(range(0, bin.Dy - item.Dy + 1))
 
         return placementPointsX, placementPointsY
 
-    @staticmethod
-    def DetermineNormalPatternsX(items, binDx, offsetX = 0):
+    """ With symmetry breaking. """
+    def GenerateUnitDiscretization(self, filteredItems, item, bin, offsetX = 0):
+        placementEndX = offsetX + bin.Dx - item.Dx
+        placementEndY =  bin.Dy - item.Dy
+        if item.Id == self.reducedItem.Id:
+            placementEndX = min(placementEndX, offsetX + self.reducedDomainThresholdX)
+            placementEndY = min(placementEndY, self.reducedDomainThresholdY)
+
+        placementPointsX = list(range(offsetX, placementEndX + 1))
+        placementPointsY = list(range(0, placementEndY + 1))
+
+        return placementPointsX, placementPointsY
+
+    def DetermineNormalPatternsX(self, items, item, binDx, offsetX = 0):
         if binDx <= 0:
             return [offsetX]
 
@@ -46,19 +115,26 @@ class PlacementPointGenerator:
         X[0] = 1
 
         for i, item in enumerate(items):
-            for p in range(binDx - item.Dx, -1, -1):
+            itemDecrementStart = binDx - item.Dx
+            if item.Id == self.reducedItem.Id:
+                itemDecrementStart = min(itemDecrementStart, self.reducedDomainThresholdX)
+
+            for p in range(itemDecrementStart, -1, -1):
                 if X[p] == 1:
                     X[p + item.Dx] = 1
 
         normalPatternsX = []
-        for p in range (binDx, -1, -1):
+        decrementStart = binDx
+        if item.Id == self.reducedItem.Id:
+            decrementStart = self.reducedDomainThresholdX
+
+        for p in range (decrementStart, -1, -1):
             if X[p] == 1:
                 normalPatternsX.append(offsetX + p)
 
         return normalPatternsX
 
-    @staticmethod
-    def DetermineNormalPatternsY(items, binDy):
+    def DetermineNormalPatternsY(self, items, item, binDy):
         if binDy <= 0:
             return [0]
 
@@ -66,26 +142,32 @@ class PlacementPointGenerator:
         Y[0] = 1
 
         for i, item in enumerate(items):
-            for p in range(binDy - item.Dy, -1, -1):
+            itemDecrementStart = binDy - item.Dy
+            if item.Id == self.reducedItem.Id:
+                itemDecrementStart = min(itemDecrementStart, self.reducedDomainThresholdY)
+
+            for p in range(itemDecrementStart, -1, -1):
                 if Y[p] == 1:
                     Y[p + item.Dy] = 1
 
         normalPatternsY = []
-        for p in range (binDy, -1, -1):
+        decrementStart = binDy
+        if item.Id == self.reducedItem.Id:
+            decrementStart = self.reducedDomainThresholdY
+
+        for p in range (decrementStart, -1, -1):
             if Y[p] == 1:
                 normalPatternsY.append(p)
 
         return normalPatternsY
 
-    @staticmethod
-    def DetermineNormalPatterns(items, binDx, binDy, offsetX = 0):
-        normalPatternsX = PlacementPointGenerator.DetermineNormalPatternsX(items, binDx, offsetX)
-        normalPatternsY = PlacementPointGenerator.DetermineNormalPatternsY(items, binDy)
+    def GenerateNormalPatterns(self, items, item, binDx, binDy, offsetX = 0):
+        normalPatternsX = self.DetermineNormalPatternsX(items, item, binDx, offsetX)
+        normalPatternsY = self.DetermineNormalPatternsY(items, item, binDy)
 
         return normalPatternsX, normalPatternsY
 
-    @staticmethod
-    def DetermineMeetInTheMiddlePatternsX(items, itemI, binDx, t, offsetX = 0):
+    def DetermineMeetInTheMiddlePatternsX(self, items, itemI, binDx, t, offsetX = 0):
         """
         itemI = items[selectedItemIndex]
         filteredItems = []
@@ -95,16 +177,15 @@ class PlacementPointGenerator:
             filteredItems.append(item)
         """
 
-        meetInTheMiddlePoints = PlacementPointGenerator.DetermineNormalPatternsX(items, min(t - 1, binDx - itemI.Dx), offsetX) # placemenetPointsLeft
-        placemenetPointsRightPrime = PlacementPointGenerator.DetermineNormalPatternsX(items, binDx - itemI.Dx - t, offsetX)
+        meetInTheMiddlePoints = self.DetermineNormalPatternsX(items, itemI, min(t - 1, binDx - itemI.Dx), offsetX) # placemenetPointsLeft
+        placemenetPointsRightPrime = self.DetermineNormalPatternsX(items, itemI, binDx - itemI.Dx - t, offsetX)
 
         for p in placemenetPointsRightPrime:
             meetInTheMiddlePoints.append(offsetX + binDx - itemI.Dx - p)
 
         return meetInTheMiddlePoints
 
-    @staticmethod
-    def DetermineMeetInTheMiddlePatternsY(items, itemI, binDy, t):
+    def DetermineMeetInTheMiddlePatternsY(self, items, itemI, binDy, t):
         """
         itemI = items[selectedItemIndex]
         filteredItems = []
@@ -114,36 +195,34 @@ class PlacementPointGenerator:
             filteredItems.append(item)
         """
 
-        meetInTheMiddlePoints = PlacementPointGenerator.DetermineNormalPatternsY(items, min(t - 1, binDy - itemI.Dy)) # placemenetPointsLeft
-        placemenetPointsRightPrime = PlacementPointGenerator.DetermineNormalPatternsY(items, binDy - itemI.Dy - t)
+        meetInTheMiddlePoints = self.DetermineNormalPatternsY(items, itemI, min(t - 1, binDy - itemI.Dy)) # placemenetPointsLeft
+        placemenetPointsRightPrime = self.DetermineNormalPatternsY(items, itemI, binDy - itemI.Dy - t)
 
         for p in placemenetPointsRightPrime:
             meetInTheMiddlePoints.append(binDy - itemI.Dy - p)
 
         return meetInTheMiddlePoints
 
-    @staticmethod
-    def DetermineMeetInTheMiddlePatterns(items, itemI, binDx, binDy, offsetX = 0):
+    def GenerateMeetInTheMiddlePatterns(self, items, itemI, binDx, binDy, offsetX = 0):
         meetInTheMiddlePointsX = set()
         meetInTheMiddlePointsY = set()
         for t in range(1, binDx + 1):
-            meetInTheMiddlePoints = PlacementPointGenerator.DetermineMeetInTheMiddlePatternsX(items, itemI, binDx, t, offsetX)
+            meetInTheMiddlePoints = self.DetermineMeetInTheMiddlePatternsX(items, itemI, binDx, t, offsetX)
             #meetInTheMiddlePointsX.extend(meetInTheMiddlePoints)
             meetInTheMiddlePointsX.update(meetInTheMiddlePoints)
 
         for t in range(1, binDy + 1):
-            meetInTheMiddlePoints = PlacementPointGenerator.DetermineMeetInTheMiddlePatternsY(items, itemI, binDy, t)
+            meetInTheMiddlePoints = self.DetermineMeetInTheMiddlePatternsY(items, itemI, binDy, t)
             #meetInTheMiddlePointsY.extend(meetInTheMiddlePoints)
             meetInTheMiddlePointsY.update(meetInTheMiddlePoints)
 
         return list(meetInTheMiddlePointsX), list(meetInTheMiddlePointsY)
         
-    @staticmethod
-    def DetermineMinimalMeetInTheMiddlePatternsX(items, itemI, binDx, offsetX = 0):
+    def DetermineMinimalMeetInTheMiddlePatternsX(self, items, itemI, binDx, offsetX = 0):
         meetInTheMiddlePointsLeftX = [0] * (binDx + 1)
         meetInTheMiddlePointsRightX = [0] * (binDx + 1)
 
-        regularNormalPatterns = PlacementPointGenerator.DetermineNormalPatternsX(items, binDx - itemI.Dx, offsetX)
+        regularNormalPatterns = self.DetermineNormalPatternsX(items, itemI, binDx - itemI.Dx, offsetX)
         #normalPatternsX = PlacementPointGenerator.DetermineNormalPatternsX(items, binDx - itemI.Dx, offsetX)
 
         #regularNormalPatterns = set(normalPatternsX)
@@ -173,12 +252,11 @@ class PlacementPointGenerator:
 
         return meetInTheMiddlePointsX
         
-    @staticmethod
-    def DetermineMinimalMeetInTheMiddlePatternsY(items, itemI, binDy):
+    def DetermineMinimalMeetInTheMiddlePatternsY(self, items, itemI, binDy):
         meetInTheMiddlePointsLeftY = [0] * (binDy + 1)
         meetInTheMiddlePointsRightY = [0] * (binDy + 1)
 
-        normalPatternsY = PlacementPointGenerator.DetermineNormalPatternsY(items, binDy - itemI.Dy)
+        normalPatternsY = self.DetermineNormalPatternsY(items, itemI, binDy - itemI.Dy)
 
         regularNormalPatterns = set(normalPatternsY)
         for p in regularNormalPatterns:
@@ -207,9 +285,8 @@ class PlacementPointGenerator:
 
         return meetInTheMiddlePointsY
         
-    @staticmethod
-    def DetermineMinimalMeetInTheMiddlePatterns(items, itemI, binDx, binDy, offsetX = 0):
-        meetInTheMiddlePointsX = PlacementPointGenerator.DetermineMinimalMeetInTheMiddlePatternsX(items, itemI, binDx, offsetX)
-        meetInTheMiddlePointsY = PlacementPointGenerator.DetermineMinimalMeetInTheMiddlePatternsY(items, itemI, binDy)
+    def GenerateMinimalMeetInTheMiddlePatterns(self, items, itemI, binDx, binDy, offsetX = 0):
+        meetInTheMiddlePointsX = self.DetermineMinimalMeetInTheMiddlePatternsX(items, itemI, binDx, offsetX)
+        meetInTheMiddlePointsY = self.DetermineMinimalMeetInTheMiddlePatternsY(items, itemI, binDy)
 
         return meetInTheMiddlePointsX, meetInTheMiddlePointsY

@@ -7,10 +7,11 @@ import networkx as nx
 from networkx.algorithms.approximation import clique
 
 from Model import Item, Bin
-from PlacementPoints import PlacementPointStrategy
 
 from OrthogonalPacking import OrthogonalPackingSolver
 from SymmetryBreaking import SymmetryBreaking
+#from PlacementPoints import PlacementPointStrategy
+import PlacementPoints
 
 """ 
 Implements the reduction procedures from section 3 in 
@@ -32,7 +33,8 @@ class PreprocessOrthogonalPacking:
         self.FilterFrameConfiguration(newItems, newBin)
         self.EnlargeItemsByOrthogonalPacking(newItems, newBin)
 
-        print(f"Preprocess removed {len(self.Items) - len(newItems)} items and reduced container area by {self.Bin.Dx * self.Bin.Dy - newBin.Dx * newBin.Dy}.")
+        if len(self.Items) > len(newItems):
+            print(f"Preprocess removed {len(self.Items) - len(newItems)} items and reduced container area by {self.Bin.Dx * self.Bin.Dy - newBin.Dx * newBin.Dy}.")
 
         self.PreprocessedItems = newItems
         self.PreprocessBin = newBin
@@ -153,7 +155,7 @@ class PreprocessOrthogonalPacking:
             items.remove(item)
 
 class PreprocessBinPacking:
-    def __init__(self, items, bin, placementPointStrategy = PlacementPointStrategy.UnitDiscretization):
+    def __init__(self, items, bin, placementPointStrategy = PlacementPoints.PlacementPointStrategy.UnitDiscretization):
         self.Items = items
         self.ProcessedItems = []
         self.Bin = bin

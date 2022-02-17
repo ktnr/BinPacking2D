@@ -8,13 +8,11 @@ import numpy
 
 from Preprocess import PreprocessBinPacking
 from BinPackingData import *
+from PlacementPoints import PlacementPointStrategy
 
 from Model import *
-from PlacementPoints import *
 
 import matplotlib
-
-from SymmetryBreaking import SymmetryBreaking
 
 class BinPackingSolverCP:
     def __init__(
@@ -363,7 +361,7 @@ def main():
     fileName = path 
     items, H, W = ReadBenchmarkData(path, str(instanceId) + '.json')
 
-    solver = BinPackingSolverCP(items, H, W, 1, len(items), PlacementPointStrategy.UnitDiscretization, 16*3600)
+    solver = BinPackingSolverCP(items, H, W, 1, len(items), PlacementPointStrategy.NormalPatterns, 16*3600)
     rectangles = solver.Solve('PairwiseAssignment')
 
     objBoundUB = solver.UB
