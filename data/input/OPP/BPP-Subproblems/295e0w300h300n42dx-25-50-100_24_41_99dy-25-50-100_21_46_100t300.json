@@ -1,0 +1,349 @@
+{
+    "Name": "295e0w300h300n42dx-25-50-100_24_41_99dy-25-50-100_21_46_100t300",
+    "InstanceType": "2D-OPP",
+    "NumberItemTypes": 42,
+    "Container": {
+        "Capacity": -1,
+        "Length": 300,
+        "Width": 300,
+        "Height": 1
+    },
+    "ItemTypes": [
+        {
+            "Id": 0,
+            "Volume": 7,
+            "Length": 1,
+            "Width": 7,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 1,
+            "Volume": 6603,
+            "Length": 71,
+            "Width": 93,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 2,
+            "Volume": 6534,
+            "Length": 66,
+            "Width": 99,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 3,
+            "Volume": 6175,
+            "Length": 95,
+            "Width": 65,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 4,
+            "Volume": 4968,
+            "Length": 92,
+            "Width": 54,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 5,
+            "Volume": 4752,
+            "Length": 99,
+            "Width": 48,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 6,
+            "Volume": 4674,
+            "Length": 57,
+            "Width": 82,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 7,
+            "Volume": 4672,
+            "Length": 64,
+            "Width": 73,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 8,
+            "Volume": 4620,
+            "Length": 77,
+            "Width": 60,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 9,
+            "Volume": 4508,
+            "Length": 92,
+            "Width": 49,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 10,
+            "Volume": 3549,
+            "Length": 39,
+            "Width": 91,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 11,
+            "Volume": 3476,
+            "Length": 79,
+            "Width": 44,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 12,
+            "Volume": 2967,
+            "Length": 43,
+            "Width": 69,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 13,
+            "Volume": 2688,
+            "Length": 84,
+            "Width": 32,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 14,
+            "Volume": 2592,
+            "Length": 32,
+            "Width": 81,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 15,
+            "Volume": 2480,
+            "Length": 40,
+            "Width": 62,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 16,
+            "Volume": 2407,
+            "Length": 83,
+            "Width": 29,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 17,
+            "Volume": 2128,
+            "Length": 56,
+            "Width": 38,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 18,
+            "Volume": 2124,
+            "Length": 36,
+            "Width": 59,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 19,
+            "Volume": 1932,
+            "Length": 23,
+            "Width": 84,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 20,
+            "Volume": 1581,
+            "Length": 93,
+            "Width": 17,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 21,
+            "Volume": 1460,
+            "Length": 73,
+            "Width": 20,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 22,
+            "Volume": 1430,
+            "Length": 26,
+            "Width": 55,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 23,
+            "Volume": 1050,
+            "Length": 25,
+            "Width": 42,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 24,
+            "Volume": 912,
+            "Length": 19,
+            "Width": 48,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 25,
+            "Volume": 900,
+            "Length": 90,
+            "Width": 10,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 26,
+            "Volume": 870,
+            "Length": 29,
+            "Width": 30,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 27,
+            "Volume": 825,
+            "Length": 55,
+            "Width": 15,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 28,
+            "Volume": 777,
+            "Length": 37,
+            "Width": 21,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 29,
+            "Volume": 696,
+            "Length": 24,
+            "Width": 29,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 30,
+            "Volume": 608,
+            "Length": 8,
+            "Width": 76,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 31,
+            "Volume": 585,
+            "Length": 45,
+            "Width": 13,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 32,
+            "Volume": 560,
+            "Length": 20,
+            "Width": 28,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 33,
+            "Volume": 533,
+            "Length": 13,
+            "Width": 41,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 34,
+            "Volume": 500,
+            "Length": 5,
+            "Width": 100,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 35,
+            "Volume": 464,
+            "Length": 29,
+            "Width": 16,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 36,
+            "Volume": 391,
+            "Length": 17,
+            "Width": 23,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 37,
+            "Volume": 350,
+            "Length": 7,
+            "Width": 50,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 38,
+            "Volume": 336,
+            "Length": 24,
+            "Width": 14,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 39,
+            "Volume": 332,
+            "Length": 83,
+            "Width": 4,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 40,
+            "Volume": 138,
+            "Length": 2,
+            "Width": 69,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 41,
+            "Volume": 61,
+            "Length": 61,
+            "Width": 1,
+            "Height": 1,
+            "Amount": 1
+        }
+    ]
+}
