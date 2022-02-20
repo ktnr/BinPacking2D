@@ -292,7 +292,7 @@ class BinPackingCallback:
             BinPackingCallback.AddCuts(model, itemIndicesArray, itemsInBinArray)
 
 class BinPackingMip:
-    def __init__(self, enable2D = True):
+    def __init__(self, enable2D = True, placementPointStrategy = PlacementPointStrategy.UnitDiscretization):
         self.Model = gp.Model("BinPacking")
 
         self.Model.Params.OutputFlag = 0
@@ -302,6 +302,8 @@ class BinPackingMip:
         self.Model.Params.lazyConstraints = 1
         self.Model.Params.MIPFocus = 2
         self.Model.Params.TimeLimit = 1800 if enable2D else 180
+
+        self.placementPointStrategy = placementPointStrategy
 
         self.Items = []
         self.Bins = []
@@ -431,7 +433,7 @@ class BinPackingMip:
         self.Model._EnableSubproblemPreprocess = False
         
         self.Model._EnablePreprocessLifting = False
-        self.Model._PlacementPointStrategy = PlacementPointStrategy.NormalPatterns
+        self.Model._PlacementPointStrategy = self.placementPointStrategy
 
         self.Model._InstanceId = self.InstanceId
 
@@ -677,7 +679,7 @@ class BinPackingMip:
 
 class BinPackingBranchAndCutSolver:
     def __init__(self, instanceId, placementPointStrategy = PlacementPointStrategy.UnitDiscretization):
-        self.BinPacking = BinPackingMip()
+        self.BinPacking = BinPackingMip(True, placementPointStrategy)
         self.BinPacking.InstanceId = instanceId
 
         self.IsOptimal = False
@@ -759,12 +761,12 @@ def main():
     #mediumInstance = [149, 174]
 
     path = 'data/input/BPP/CLASS'
-    for instance in range(87, 500):
+    for instance in range(311, 500):
     #for instance in hardInstances:
         currentInstanceId = instance
         items, H, W = ReadBenchmarkData(path, str(instance) + '.json')
         
-        solver = BinPackingBranchAndCutSolver(instance)
+        solver = BinPackingBranchAndCutSolver(instance, PlacementPointStrategy.NormalPatterns)
         rectangles = solver.Run(items, H, W)
 
         solver.RetrieveSolutionStatistics()

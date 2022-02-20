@@ -24,8 +24,9 @@ class PlacementPointGenerator:
             self.reducedItemIndex = PlacementPointGenerator.DetermineMaximumItemIndexDx(items)
 
             self.reducedItem = items[self.reducedItemIndex]
-            self.reducedDomainThresholdX = PlacementPointGenerator.ReducedDomainX(bin.Dx, self.reducedItem)
-            self.reducedDomainThresholdY = PlacementPointGenerator.ReducedDomainY(bin.Dy, self.reducedItem)
+            reducedDomainThresholdX = PlacementPointGenerator.ReducedDomainX(bin.Dx, self.reducedItem)
+            reducedDomainThresholdY = PlacementPointGenerator.ReducedDomainY(bin.Dy, self.reducedItem)
+            self.reducedDomainThreshold = Item(-1, reducedDomainThresholdX, reducedDomainThresholdY)
         else:
             self.reducedItemIndex = -1
 
@@ -128,8 +129,8 @@ class PlacementPointGenerator:
         placementEndX = offsetX + bin.Dx - item.Dx
         placementEndY =  bin.Dy - item.Dy
         if item.Id == self.reducedItem.Id:
-            placementEndX = min(placementEndX, offsetX + self.reducedDomainThresholdX)
-            placementEndY = min(placementEndY, self.reducedDomainThresholdY)
+            placementEndX = min(placementEndX, offsetX + self.reducedDomainThreshold.Dimension(Axis.X))
+            placementEndY = min(placementEndY, self.reducedDomainThreshold.Dimension(Axis.Y))
 
         placementPointsX = list(range(offsetX, placementEndX + 1))
         placementPointsY = list(range(0, placementEndY + 1))
@@ -147,15 +148,15 @@ class PlacementPointGenerator:
         X = [0] * (binDimension + 1)
         X[0] = 1
 
-        for i, item in enumerate(items):
-            for p in range(binDimension - item.Dimension(axis), -1, -1):
+        for i, itemI in enumerate(items):
+            for p in range(binDimension - itemI.Dimension(axis), -1, -1):
                 if X[p] == 1:
-                    X[p + item.Dimension(axis)] = 1
+                    X[p + itemI.Dimension(axis)] = 1
 
         normalPatterns = []
         decrementStart = binDimension
         if item.Id == self.reducedItem.Id:
-            decrementStart = self.reducedDomainThresholdX
+            decrementStart = self.reducedDomainThreshold.Dimension(axis)
 
         for p in range (decrementStart, -1, -1):
             if X[p] == 1:
