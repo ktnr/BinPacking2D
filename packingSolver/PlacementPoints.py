@@ -156,7 +156,7 @@ class PlacementPointGenerator:
         normalPatterns = []
         decrementStart = binDimension
         if item.Id == self.reducedItem.Id:
-            decrementStart = self.reducedDomainThreshold.Dimension(axis)
+            decrementStart = min(binDimension, self.reducedDomainThreshold.Dimension(axis))
 
         for p in range (decrementStart, -1, -1):
             if X[p] == 1:
