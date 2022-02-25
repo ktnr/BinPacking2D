@@ -1,0 +1,277 @@
+{
+    "Name": "298e1w300h300n33dx-25-50-100_21_44_94dy-25-50-100_39_63_96t300",
+    "InstanceType": "2D-OPP",
+    "NumberItemTypes": 33,
+    "Container": {
+        "Capacity": -1,
+        "Length": 300,
+        "Width": 300,
+        "Height": 1
+    },
+    "ItemTypes": [
+        {
+            "Id": 0,
+            "Volume": 28,
+            "Length": 28,
+            "Width": 1,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 1,
+            "Volume": 8930,
+            "Length": 94,
+            "Width": 95,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 2,
+            "Volume": 8272,
+            "Length": 94,
+            "Width": 88,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 3,
+            "Volume": 7440,
+            "Length": 93,
+            "Width": 80,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 4,
+            "Volume": 6806,
+            "Length": 83,
+            "Width": 82,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 5,
+            "Volume": 6144,
+            "Length": 64,
+            "Width": 96,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 6,
+            "Volume": 5525,
+            "Length": 85,
+            "Width": 65,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 7,
+            "Volume": 4140,
+            "Length": 45,
+            "Width": 92,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 8,
+            "Volume": 3648,
+            "Length": 57,
+            "Width": 64,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 9,
+            "Volume": 3432,
+            "Length": 44,
+            "Width": 78,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 10,
+            "Volume": 3216,
+            "Length": 67,
+            "Width": 48,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 11,
+            "Volume": 3068,
+            "Length": 52,
+            "Width": 59,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 12,
+            "Volume": 3060,
+            "Length": 60,
+            "Width": 51,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 13,
+            "Volume": 2552,
+            "Length": 88,
+            "Width": 29,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 14,
+            "Volume": 2548,
+            "Length": 28,
+            "Width": 91,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 15,
+            "Volume": 2296,
+            "Length": 28,
+            "Width": 82,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 16,
+            "Volume": 2145,
+            "Length": 55,
+            "Width": 39,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 17,
+            "Volume": 2088,
+            "Length": 36,
+            "Width": 58,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 18,
+            "Volume": 2079,
+            "Length": 33,
+            "Width": 63,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 19,
+            "Volume": 1890,
+            "Length": 21,
+            "Width": 90,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 20,
+            "Volume": 1539,
+            "Length": 57,
+            "Width": 27,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 21,
+            "Volume": 1394,
+            "Length": 17,
+            "Width": 82,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 22,
+            "Volume": 1040,
+            "Length": 80,
+            "Width": 13,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 23,
+            "Volume": 969,
+            "Length": 17,
+            "Width": 57,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 24,
+            "Volume": 924,
+            "Length": 22,
+            "Width": 42,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 25,
+            "Volume": 924,
+            "Length": 11,
+            "Width": 84,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 26,
+            "Volume": 712,
+            "Length": 8,
+            "Width": 89,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 27,
+            "Volume": 630,
+            "Length": 21,
+            "Width": 30,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 28,
+            "Volume": 610,
+            "Length": 10,
+            "Width": 61,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 29,
+            "Volume": 304,
+            "Length": 4,
+            "Width": 76,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 30,
+            "Volume": 258,
+            "Length": 43,
+            "Width": 6,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 31,
+            "Volume": 221,
+            "Length": 13,
+            "Width": 17,
+            "Height": 1,
+            "Amount": 1
+        },
+        {
+            "Id": 32,
+            "Volume": 49,
+            "Length": 49,
+            "Width": 1,
+            "Height": 1,
+            "Amount": 1
+        }
+    ]
+}
