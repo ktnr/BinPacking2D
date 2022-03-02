@@ -7,3 +7,32 @@ title: "BinPacking2D - Exact solutions to two-dimensional bin packing problems b
 version: 0.9
 date-released: 2022-03-02
 url: "https://github.com/ktnr/BinPacking2D"
+references:
+  - type: article
+    authors:
+    - family-names: "C{\^o}t{\'e}"
+      given-names: "Jean-Fran{\c{c}}ois"
+    - family-names: "Haouari"
+      given-names: "Mohamed"
+    - family-names: "Iori"
+      given-names: "Manuel"
+    journal: "INFORMS Journal on Computing"
+    start: 963
+    end: 978
+    title: "Combinatorial benders decomposition for the two-dimensional bin packing problem"
+    issue: 3
+    volume: 33
+    year: 2021
+  - type: article
+    authors:
+    - family-names: "C{\^o}t{\'e}"
+      given-names: "Jean-Fran{\c{c}}ois"
+    - family-names: "Iori"
+      given-names: "Manuel"
+    journal: "INFORMS Journal on Computing"
+    start: 646
+    end: 661
+    title: "The meet-in-the-middle principle for cutting and packing problems"
+    issue: 4
+    volume: 30
+    year: 2018
