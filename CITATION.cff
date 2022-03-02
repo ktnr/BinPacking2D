@@ -10,8 +10,8 @@ url: "https://github.com/ktnr/BinPacking2D"
 references:
   - type: article
     authors:
-    - family-names: "C{\^o}t{\'e}"
-      given-names: "Jean-Fran{\c{c}}ois"
+    - family-names: "Côté"
+      given-names: "Jean-François"
     - family-names: "Haouari"
       given-names: "Mohamed"
     - family-names: "Iori"
@@ -25,8 +25,8 @@ references:
     year: 2021
   - type: article
     authors:
-    - family-names: "C{\^o}t{\'e}"
-      given-names: "Jean-Fran{\c{c}}ois"
+    - family-names: "Côté"
+      given-names: "Jean-François"
     - family-names: "Iori"
       given-names: "Manuel"
     journal: "INFORMS Journal on Computing"
