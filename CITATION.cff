@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Kuttner"
+  given-names: "Leopold"
+title: "BinPacking2D - Exact solutions to two-dimensional bin packing problems by branch-and-cut"
+version: 0.9
+date-released: 2022-03-02
+url: "https://github.com/ktnr/BinPacking2D"
