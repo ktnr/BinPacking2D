@@ -285,25 +285,12 @@ class OrthogonalPackingRelaxed2D(OrthogonalPackingBase2D):
     def CreateVariables(self):
         binDx = self.Bin.Dx
 
-        #reducedItemIndex = SymmetryBreaking.DetermineMaximumItemIndexDx(self.Items)
-
-        #reducedItem = self.Items[reducedItemIndex]
-        #reducedDomainThresholdX = SymmetryBreaking.ReducedDomainX(binDx, reducedItem)
         placementPointGenerator = PlacementPointGenerator(self.Items, self.Bin)
         placementPatternsX, placementPatternsY = placementPointGenerator.CreatePlacementPatterns(self.placementPointStrategy, self.Items, self.Bin)
 
         for i, item in enumerate(self.Items):
-        
-            filteredItems = [itemJ for j, itemJ in enumerate(self.Items) if i != j]
-
             placementPatternX = placementPatternsX[i]
 
-            #if i == reducedItemIndex:
-            #    placementPointsStartX = [p for p in placementPointsX if p + item.Dx <= binDx and p <= reducedDomainThresholdX]
-            #else:
-            #    placementPointsStartX = [p for p in placementPointsX if p + item.Dx <= binDx] # unnecessary, is satisfied by construction
-
-            #x1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPointsStartX), f'x1.{i}')
             x1 = self.Model.NewIntVarFromDomain(Domain.FromValues(placementPatternX), f'x1.{i}')
 
             self.StartX.append(x1)
@@ -383,8 +370,7 @@ class OrthogonalPacking2D(OrthogonalPackingBase2D):
 
     def FixVariablesX(self):
         for i, placement in enumerate(self.fixedPositionsX):
-            #self.StartX[i].FixVariable(placement) # will be available in future releases
-            self.Model.Add(self.StartX[i] == placement)
+            self.StartX[i].FixVariable(placement)
 
     def CreateConstraints(self):
         self.CreateNoOverlapConstraints()
@@ -439,4 +425,4 @@ def main(instanceFilter = [r'.*']):
                 print(f'{fileName} is infeasible in {elapsedTime}s')
 
 if __name__ == "__main__":
-    main([r'E02F17'])
+    main([r'E00N23'])

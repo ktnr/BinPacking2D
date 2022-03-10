@@ -362,7 +362,7 @@ def main():
     items, H, W = ReadBenchmarkData(path, str(instanceId) + '.json')
 
     solver = BinPackingSolverCP(items, H, W, 1, len(items), PlacementPointStrategy.NormalPatterns, 16*3600)
-    rectangles = solver.Solve('PairwiseAssignment')
+    rectangles = solver.Solve('OneBigBin')
 
     objBoundUB = solver.UB
 
