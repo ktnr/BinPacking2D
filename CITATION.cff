@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Kuttner"
+  given-names: "Leopold"
+title: "BinPacking2D - Exact solutions to two-dimensional bin packing problems by branch-and-cut"
+version: 0.9
+date-released: 2022-03-02
+url: "https://github.com/ktnr/BinPacking2D"
+references:
+  - type: article
+    authors:
+    - family-names: "Côté"
+      given-names: "Jean-François"
+    - family-names: "Haouari"
+      given-names: "Mohamed"
+    - family-names: "Iori"
+      given-names: "Manuel"
+    journal: "INFORMS Journal on Computing"
+    start: 963
+    end: 978
+    title: "Combinatorial benders decomposition for the two-dimensional bin packing problem"
+    issue: 3
+    volume: 33
+    year: 2021
+  - type: article
+    authors:
+    - family-names: "Côté"
+      given-names: "Jean-François"
+    - family-names: "Iori"
+      given-names: "Manuel"
+    journal: "INFORMS Journal on Computing"
+    start: 646
+    end: 661
+    title: "The meet-in-the-middle principle for cutting and packing problems"
+    issue: 4
+    volume: 30
+    year: 2018
