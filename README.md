@@ -78,6 +78,7 @@ The most impactful algorithmic components are
 - no-good cuts of type (4),
 - strong constraint programming formulations for the start solution (2D-BPP) and subproblems (2D-Knapsack) by reducing decision variable domains as much as possible, i.e. reducing available placement points through the techniques mentioned above and placement point patterns such as the meet-in-the-middle patterns. Although, the impact of placement patterns has diminished with more recent updates of or-tools.
 
+## Future research
 The benefit of producing no-good cuts (29) from reduced feasible sets is only marginal. The benefit of lifting these cuts (30) is also only marginal, mainly due to the numerous 2D-KPs that must be solved. Hence, speeding up the solution of the 2D-KP of Algorithm 2 (currently solved as 2D-KP with google's CP-SAT and a time limit of 1 second) might increase the impact of lifting. 
 
 Components with the greatest potential to improve solution times:
