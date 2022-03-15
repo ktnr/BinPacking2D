@@ -16,6 +16,7 @@ from packingSolver.PlacementPoints import PlacementPointStrategy
 from packingSolver.BinPackingData import *
 
 def SetFullPropagations(parameters):
+    #parameters.UseCombinedNoOverlap = False
     parameters.EnableCumulativeNoOverlap2D = True
     parameters.EnableDisjunctiveConstraintsInCumulative = True
     parameters.EnableTimeTableEdgeFinding = True
@@ -51,7 +52,7 @@ for root, dirs, files in os.walk(path):
         t1 = time.time()
 
         parametersCP = ParametersPackingCP()
-        #SetFullPropagations(parameters)
+        #SetFullPropagations(parametersCP)
 
         solver = OrthogonalPackingSolver(items, bin, PlacementPointStrategy.StandardUnitDiscretization)
         isFeasible = solver.Solve(True, instanceName, 'BaseModel', parametersCP)

@@ -19,8 +19,9 @@ class ParametersPackingCP:
         self.Threads = 8
         self.TimeLimit = None
         self.EnableLogging = False
+        self.UseCombinedNoOverlap = False
         self.EnableCumulativeNoOverlap2D = False
-        self.EnableDisjunctiveConstraintsInCumulative = False
+        self.EnableDisjunctiveConstraintsInCumulative = True
         self.EnableTimeTableEdgeFinding = False
         self.EnableEnergeticReasoning = False
 
@@ -198,6 +199,8 @@ class OrthogonalPackingBase2D:
         self.Solver.parameters.log_search_progress = self.parameters.EnableLogging 
         if self.parameters.TimeLimit != None:
             self.Solver.parameters.max_time_in_seconds = self.parameters.TimeLimit
+
+        self.Solver.parameters.use_combined_no_overlap = self.parameters.UseCombinedNoOverlap
 
         self.Solver.parameters.use_cumulative_in_no_overlap_2d = self.parameters.EnableCumulativeNoOverlap2D
         self.Solver.parameters.use_disjunctive_constraint_in_cumulative_constraint = self.parameters.EnableDisjunctiveConstraintsInCumulative
