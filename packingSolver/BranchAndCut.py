@@ -347,30 +347,7 @@ class BinPackingMip:
             self.BinVariables.append(binVar)
             #print(bin.WeightLimit)
 
-        w = [item.Dx for item in self.Items]
-        h = [item.Dy for item in self.Items]
-
-        totalArea = numpy.dot(w,h)
-        lowerBoundBinArea = math.ceil(float(totalArea) / float(self.Bins[0].Dx * self.Bins[0].Dy)) # homogeneous bins!
-
-        lb1D = lowerBoundBinArea
-        if self.Enable2D:
-            binPacking1D = BinPackingMip(False)
-            binPacking1D.Preprocess = self.Preprocess
-
-            binPacking1D.AddItems(list(self.Items))
-            binPacking1D.AddBins([self.Bins[0].Dx] * len(self.Bins), [self.Bins[0].Dy] * len(self.Bins))
-
-            binPacking1D.CreateVariables()
-            binPacking1D.CreateConstraints()
-
-            binPacking1D.Solve()
-
-            model1D = binPacking1D.Model  
-            lb1D = math.ceil(model1D.objBound)
-            # TODO add bound lifted indicator to solution statistic
-
-        self.LowerBoundBin = max(lowerBoundBinArea, lb1D)
+        self.LowerBoundBin = BinPackingMip.DetermineLowerBoundBinPacking(self.Items, self.Bins[0], len(self.Bins), self.Preprocess, self.Enable2D)
 
         for b in range(self.LowerBoundBin):
             self.BinVariables[b].LB = 1.0
@@ -436,6 +413,34 @@ class BinPackingMip:
         self.Model._PlacementPointStrategy = self.placementPointStrategy
 
         self.Model._InstanceId = self.InstanceId
+
+    def DetermineLowerBoundBinPacking(items, bin, numberOfBins, preprocess, enable2D):
+        w = [item.Dx for item in items]
+        h = [item.Dy for item in items]
+
+        totalArea = numpy.dot(w,h)
+        lowerBoundBinArea = math.ceil(float(totalArea) / float(bin.Dx * bin.Dy)) 
+
+        lb1D = lowerBoundBinArea
+        if enable2D:
+            binPacking1D = BinPackingMip(False)
+            binPacking1D.Preprocess = preprocess
+
+            binPacking1D.AddItems(list(items))
+            binPacking1D.AddBins([bin.Dx] * numberOfBins, [bin.Dy] * numberOfBins)
+
+            binPacking1D.CreateVariables()
+            binPacking1D.CreateConstraints()
+
+            binPacking1D.Solve()
+
+            model1D = binPacking1D.Model  
+            lb1D = math.ceil(model1D.objBound)
+            # TODO add bound lifted indicator to solution statistic
+
+        lowerBound = max(lowerBoundBinArea, lb1D)
+
+        return lowerBound
 
     def DeterminePositions(self, itemIndicesArray, itemsInBinArray):
         rectanglesArray = []
@@ -751,18 +756,10 @@ class BinPackingBranchAndCutSolver:
 
 def main():
     solutions = {}
-    # Single bin 2D-BPP CP model takes ages to prove feasibility/infeasibility on instances: 173, 262, 292, 297, 298, 317
-    # Deprecated comments:
-    # Meet in the middle produces erroneous 1D KP instances for instances 11
-    # Postsolve error: 51, 45, 125/126, 31, 26 or 27, 311
-    # Double count: 21, 22, 26, 27, 31, 32
-    # Negative lifting coefficient: 120, 123, 
-    #hardInstances = [226, 232, 242, 242, 244, 245, 247, 248, 249, 261, 292, 313, 314, 332, 173, 187, 188, 191, 197, 142, 143, 145, 146, 149]
-    #mediumInstance = [149, 174]
+    # Single bin 2D-BPP CP model takes ages to prove feasibility/infeasibility on some instances, e.g.: 173, 262, 292, 297, 298, 317
 
     path = 'data/input/BPP/CLASS'
-    for instance in range(311, 500):
-    #for instance in hardInstances:
+    for instance in range(1, 501):
         currentInstanceId = instance
         items, H, W = ReadBenchmarkData(path, str(instance) + '.json')
         
