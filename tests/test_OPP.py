@@ -90,10 +90,12 @@ class TestPackingProblems(unittest.TestCase):
 
                     self.assertEqual(isFeasible, isExpectedFeasible, message)
 
+"""
 def test_performance(benchmark):
     test = TestPackingProblems()
     test.setUp()
     result = benchmark(test.test_all_instances)
+"""
 
 def main():
     unittest.main()
