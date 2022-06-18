@@ -51,6 +51,11 @@ class OrthogonalPackingSolver:
         preprocessedItems = preprocess.PreprocessedItems
         preprocessedBin = preprocess.PreprocessBin
 
+        if len(preprocessedItems) == 0:
+            # Instance is feasible
+            # TODO: Extract positions from preprocess
+            return True
+
         if modelType == 'BaseModel':
             model = OrthogonalPacking2D(preprocessedItems, preprocessedBin, self.placementPointStrategy, parametersCP)
         elif modelType == 'BranchAndCheck':

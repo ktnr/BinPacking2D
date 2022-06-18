@@ -132,11 +132,15 @@ class PreprocessOrthogonalPacking:
             isFeasible = orthogonalPackingSolver.Solve(False)
             
             if isFeasible:
-                if len(itemSubset) > len(largestItemCount):
+                if len(itemSubset) > largestItemCount:
                     largestItemCount = len(itemSubset)
                     largestItemThreshold = p
 
                     feasibleThresholdToItemCount[p] = itemSubset
+
+                    if largestItemCount == len(items):
+                        # All items could be removed.
+                        break
 
         if largestItemThreshold == -1:
             return
