@@ -1,4 +1,4 @@
-# Exact solutions to two-dimensional bin packing problems
+# Exact solutions to two-dimensional bin packing problems [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6673912.svg)](https://doi.org/10.5281/zenodo.6673912)
 
 This is a partial replication of [Côté, Haouari, Iori (2019): A Primal Decomposition Algorithm for the Two-dimensional Bin Packing Problem. arXiv:1909.06835 [math.OC]](https://arxiv.org/abs/1909.06835) resp. [Côté, Haouari, Iori (2021): Combinatorial Benders Decomposition for the Two-Dimensional Bin Packing Problem. INFORMS Journal on Computing,](https://doi.org/10.1287/ijoc.2020.1014) with components from
 - [Côté, J. F., & Iori, M. (2018). The meet-in-the-middle principle for cutting and packing problems. INFORMS Journal on Computing, 30(4), 646-661.](https://doi.org/10.1287/ijoc.2018.0806) 
