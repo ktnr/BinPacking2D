@@ -20,10 +20,11 @@ class ParametersPackingCP:
         self.TimeLimit = None
         self.EnableLogging = False
         self.UseCombinedNoOverlap = False
-        self.EnableCumulativeNoOverlap2D = False
         self.EnableDisjunctiveConstraintsInCumulative = True
-        self.EnableTimeTableEdgeFinding = False
-        self.EnableEnergeticReasoning = False
+        self.EnableTimeTableEdgeFindingInCumulative = False
+        self.EnableTimeTablingInNoOverlap = False
+        self.EnableOverloadCheckingInCumulative = False # Similar to energetic reasoning
+        self.EnableEnergeticReasoningInNoOverlap = False
 
 class OrthogonalPackingSolver:
     def __init__(
@@ -207,10 +208,12 @@ class OrthogonalPackingBase2D:
 
         self.Solver.parameters.use_combined_no_overlap = self.parameters.UseCombinedNoOverlap
 
-        self.Solver.parameters.use_cumulative_in_no_overlap_2d = self.parameters.EnableCumulativeNoOverlap2D
-        self.Solver.parameters.use_disjunctive_constraint_in_cumulative_constraint = self.parameters.EnableDisjunctiveConstraintsInCumulative
-        self.Solver.parameters.use_timetable_edge_finding_in_cumulative_constraint = self.parameters.EnableTimeTableEdgeFinding
-        self.Solver.parameters.use_overload_checker_in_cumulative_constraint = self.parameters.EnableEnergeticReasoning
+        self.Solver.parameters.use_disjunctive_constraint_in_cumulative = self.parameters.EnableDisjunctiveConstraintsInCumulative
+        self.Solver.parameters.use_timetable_edge_finding_in_cumulative = self.parameters.EnableTimeTableEdgeFindingInCumulative
+        self.Solver.parameters.use_timetabling_in_no_overlap_2d = self.parameters.EnableTimeTablingInNoOverlap
+        self.Solver.parameters.use_overload_checker_in_cumulative = self.parameters.EnableOverloadCheckingInCumulative
+        self.Solver.parameters.use_energetic_reasoning_in_no_overlap_2d = self.parameters.EnableEnergeticReasoningInNoOverlap
+        #self.Solver.parameters.use_dual_scheduling_heuristics = False
         
         #self.Solver.parameters.optimize_with_lb_tree_search = True;
         #self.Solver.parameters.binary_search_num_conflicts  = 99;

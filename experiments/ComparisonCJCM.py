@@ -15,12 +15,27 @@ from packingSolver.OrthogonalPacking import OrthogonalPackingSolver, ParametersP
 from packingSolver.PlacementPoints import PlacementPointStrategy
 from packingSolver.BinPackingData import *
 
-def SetFullPropagations(parameters):
-    #parameters.UseCombinedNoOverlap = False
-    parameters.EnableCumulativeNoOverlap2D = True
+def SetSearchParameters(parameters):
+    SetDefault(parameters)
+    #SetBasic(parameters)
+    #SetFull(parameters)
+
+def SetDefault(parameters):
+    pass
+
+def SetBasic(parameters):
     parameters.EnableDisjunctiveConstraintsInCumulative = True
-    parameters.EnableTimeTableEdgeFinding = True
-    parameters.EnableEnergeticReasoning = True
+    parameters.EnableTimeTableEdgeFindingInCumulative = True
+    parameters.EnableTimeTablingInNoOverlap = True
+    parameters.EnableEnergeticReasoningInNoOverlap = True
+
+def SetFull(parameters):
+    #parameters.UseCombinedNoOverlap = False
+    parameters.EnableDisjunctiveConstraintsInCumulative = True
+    parameters.EnableTimeTableEdgeFindingInCumulative = True
+    parameters.EnableTimeTablingInNoOverlap = True
+    parameters.EnableOverloadCheckingInCumulative = True
+    parameters.EnableEnergeticReasoningInNoOverlap = True
 
 runtimesMaxCJCM = {
     "E00N23": 70.0,
@@ -52,7 +67,7 @@ for root, dirs, files in os.walk(path):
         t1 = time.time()
 
         parametersCP = ParametersPackingCP()
-        #SetFullPropagations(parametersCP)
+        SetSearchParameters(parametersCP)
 
         solver = OrthogonalPackingSolver(items, bin, PlacementPointStrategy.StandardUnitDiscretization)
         isFeasible = solver.Solve(True, instanceName, 'BaseModel', parametersCP)
