@@ -400,6 +400,7 @@ class PlacementPointGenerator:
                     modifiedWidthS = modifiedItemDimensionsK[s]
                     if s + modifiedWidthS <= p + modifiedWidthP:
                         placementPoints.remove(p)
+                        break
 
     def DetermineEnlargedItemDimensionsRight(self, items, axis, itemSpecificModifiedDimensions, itemSpecificPatternsRight, binDimension, preliminaryItemSpecificMeetInTheMiddlePatterns):
         for k, itemK in enumerate(items):
