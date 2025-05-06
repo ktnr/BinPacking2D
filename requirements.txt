@@ -1,6 +1,6 @@
 gurobipy==9.5.0
 matplotlib==3.3.4
 networkx==2.5
-numpy==1.20.1
+numpy>=1.21.0,<1.27
 ortools==9.4.1874
 pandas==1.2.4
